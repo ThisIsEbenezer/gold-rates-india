@@ -1,0 +1,15 @@
+{
+  "name": "gold-rates-india",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Live gold & silver rates in INR (IST), next-day estimate and price-change history. Static site + Netlify Functions.",
+  "scripts": {
+    "dev": "netlify dev",
+    "test": "node --test test/*.test.mjs"
+  },
+  "dependencies": {
+    "@netlify/blobs": "^8.1.0"
+  },
+  "engines": { "node": ">=20" }
+}
