@@ -12,9 +12,9 @@ if (process.env.NOW) { for (const [h, x] of [['05:00', 4000], ['07:10', 4030], [
 const mime = { '.html': 'text/html', '.css': 'text/css', '.js': 'text/javascript', '.svg': 'image/svg+xml' };
 http.createServer(async (req, res) => {
   const send = (j) => { res.setHeader('content-type', 'application/json'); res.end(JSON.stringify(j)); };
-  if (req.url === '/api/rates') return send(await getSnapshot({ fetchImpl: f, store, now: now0, cfg }));
-  if (req.url === '/api/history') { const seed = await getDailySeries(f, cfg, now0); return send({ today: await readToday({ store, now: now0 }), daily: seed.filter((r) => ![0, 6].includes(new Date(r.date + 'T12:00Z').getUTCDay())).slice(-30) }); }
-  const p = path.join('public', req.url === '/' ? 'index.html' : req.url.split('?')[0]);
-  if (!fs.existsSync(p)) { res.statusCode = 404; return res.end('nf'); }
+  if (req.url.startsWith('/api/rates')) { const ff = process.env.VARY ? mockFetch({ xau: 4000 + Math.round((Math.random() - 0.3) * 60) }) : f; return send(await getSnapshot({ fetchImpl: ff, store, now: process.env.VARY ? new Date(Date.now()) : now0, cfg })); }
+  if (req.url.startsWith('/api/history')) { const seed = await getDailySeries(f, cfg, now0); return send({ today: await readToday({ store, now: now0 }), daily: seed.filter((r) => ![0, 6].includes(new Date(r.date + 'T12:00Z').getUTCDay())).slice(-30) }); }
+  const u = req.url.split('?')[0]; const p = path.join('public', u === '/' ? 'index.html' : u);
+  if (!fs.existsSync(p) || fs.statSync(p).isDirectory()) { res.statusCode = 404; return res.end('nf'); }
   res.setHeader('content-type', mime[path.extname(p)] || 'text/plain'); res.end(fs.readFileSync(p));
 }).listen(8888, () => console.log('http://localhost:8888'));

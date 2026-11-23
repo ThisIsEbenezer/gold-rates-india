@@ -2,109 +2,77 @@
 <html lang="en-IN">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Gold &amp; Silver Rate Today in India (IST) · Tomorrow's Estimate</title>
-<meta name="description" content="Live gold and silver rates in India in rupees, price-change history for today, and a statistical estimate for the next trading day. All times in IST.">
-<meta name="theme-color" content="#101827">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Gold &amp; Silver Rate Today in India · Live in IST</title>
+<meta name="description" content="Live gold and silver rates in India in rupees, today's price changes and tomorrow's estimate. All times in IST.">
+<meta name="theme-color" content="#0A0F1E">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600&family=Manrope:wght@400;500;600;700&display=swap">
 <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
-<a class="skip" href="#board">Skip to rates</a>
+<div class="glow" aria-hidden="true"></div>
 
-<header class="top">
-  <div class="wrap top-in">
-    <div class="brand"><svg width="28" height="28" viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="14" fill="#101827"/><path d="M14 40h36l-6-14H20z" fill="#C8961E"/><path d="M22 26h20l-4-8H26z" fill="#E6BE5C"/></svg><span>Bhav Board</span></div>
-    <div class="clock" aria-live="off"><span id="clock">--:--:--</span> <span class="tz">IST</span></div>
+<header class="bar">
+  <div class="wrap bar-in">
+    <div class="brand"><svg width="26" height="26" viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="16" fill="#171F36"/><path d="M14 42h36l-6-14H20z" fill="#C8961E"/><path d="M22 28h20l-4-8H26z" fill="#F1CF7A"/></svg><span>Bhav</span></div>
+    <div class="clock"><span id="clock">--:--:--</span><span class="tz">IST</span></div>
   </div>
 </header>
 
 <main class="wrap">
-  <section class="intro">
-    <h1>Gold and silver rates in India</h1>
-    <p class="status-line">
-      <span id="statusPill" class="pill pill-wait">Loading</span>
-      <span id="statusText" class="muted">Fetching the latest rates…</span>
-    </p>
-    <div id="alert" class="alert" role="status" hidden></div>
+  <div id="alert" class="alert" role="status" hidden></div>
+
+  <section class="hero" aria-labelledby="heroLabel">
+    <div class="status"><span id="statusPill" class="pill">Loading</span><span id="statusText" class="muted"></span></div>
+    <h1 id="heroLabel" class="hero-label">Gold 24K <span id="u-g24" class="unit">per 10 g</span></h1>
+    <div class="hero-price" id="hero-price"><span class="rs">₹</span><span id="v-g24" class="metal">––,–––</span></div>
+    <div class="chip" id="c-g24" aria-live="polite"></div>
+
+    <div class="controls">
+      <fieldset class="seg"><legend class="sr">Unit</legend>
+        <label><input type="radio" name="unit" value="trade" checked><span>10 g · 1 kg</span></label>
+        <label><input type="radio" name="unit" value="gram"><span>1 gram</span></label>
+      </fieldset>
+      <label class="switch"><input type="checkbox" id="gst"><span class="track"></span><span>+3% GST</span></label>
+    </div>
   </section>
 
-  <section class="controls" aria-label="Display options">
-    <fieldset class="seg">
-      <legend class="sr">Unit</legend>
-      <label><input type="radio" name="unit" value="trade" checked><span>Trade units</span></label>
-      <label><input type="radio" name="unit" value="gram"><span>Per gram</span></label>
-    </fieldset>
-    <label class="check"><input type="checkbox" id="gst"><span>Include 3% GST</span></label>
-    <span class="muted small" id="updated"></span>
+  <section class="cards" aria-label="Other rates">
+    <article class="card"><h2>Gold 22K <span id="u-g22" class="unit"></span></h2><div class="val"><span class="rs">₹</span><span id="v-g22">–</span></div><div class="chip" id="c-g22"></div></article>
+    <article class="card"><h2>Gold 18K <span id="u-g18" class="unit"></span></h2><div class="val"><span class="rs">₹</span><span id="v-g18">–</span></div><div class="chip" id="c-g18"></div></article>
+    <article class="card silver"><h2>Silver <span id="u-s" class="unit"></span></h2><div class="val"><span class="rs">₹</span><span id="v-s">–</span></div><div class="chip" id="c-s"></div></article>
   </section>
 
-  <div class="grid">
-    <section id="board" class="board" aria-labelledby="boardTitle">
-      <h2 id="boardTitle" class="sr">Current rates</h2>
-      <table class="rates">
-        <thead><tr><th scope="col">Metal</th><th scope="col" class="num">Rate (₹)</th><th scope="col" class="num">Change</th></tr></thead>
-        <tbody id="ratesBody"><tr><td colspan="3" class="muted">Loading…</td></tr></tbody>
-      </table>
-      <p class="fine" id="basis"></p>
+  <div class="two">
+    <section class="panel" aria-labelledby="fcT">
+      <h2 id="fcT">Tomorrow <span id="fcDate" class="unit"></span></h2>
+      <div id="fcBody"><p class="muted">Calculating…</p></div>
     </section>
 
-    <aside class="tomorrow" aria-labelledby="fcTitle">
-      <h2 id="fcTitle">Next-day estimate</h2>
-      <div id="fcBody"><p class="muted">Calculating…</p></div>
-    </aside>
+    <section class="panel" aria-labelledby="logT">
+      <h2 id="logT">Today’s changes</h2>
+      <ol id="log" class="log"><li class="muted">Loading…</li></ol>
+    </section>
   </div>
 
-  <section class="block" aria-labelledby="todayTitle">
-    <div class="block-head">
-      <h2 id="todayTitle">Today’s price changes</h2>
-      <p class="muted small" id="todayMeta"></p>
-    </div>
-    <div class="scroll">
-      <table class="log">
-        <thead><tr><th scope="col">Time (IST)</th><th scope="col" class="num" id="thG">Gold 24K</th><th scope="col" class="num">Change</th><th scope="col" class="num" id="thS">Silver</th><th scope="col" class="num">Change</th></tr></thead>
-        <tbody id="logBody"><tr><td colspan="5" class="muted">Loading…</td></tr></tbody>
-      </table>
-    </div>
-  </section>
-
-  <section class="block" aria-labelledby="histTitle">
-    <div class="block-head">
-      <h2 id="histTitle">Last 30 trading days</h2>
+  <section class="panel chart-panel" aria-labelledby="chT">
+    <div class="panel-head">
+      <h2 id="chT">Last 30 days</h2>
       <fieldset class="seg seg-sm"><legend class="sr">Chart metal</legend>
-        <label><input type="radio" name="metal" value="gold" checked><span>Gold 24K</span></label>
+        <label><input type="radio" name="metal" value="gold" checked><span>Gold</span></label>
         <label><input type="radio" name="metal" value="silver"><span>Silver</span></label>
       </fieldset>
     </div>
-    <figure class="chart">
-      <div id="chart" class="chart-box" role="img" aria-label="Line chart of daily closing rates"></div>
-      <div id="tip" class="tip" hidden></div>
-    </figure>
-    <details class="tableview"><summary>View as table</summary>
-      <div class="scroll"><table class="log"><thead><tr><th scope="col">Date</th><th scope="col" class="num">Gold 24K</th><th scope="col" class="num">Silver</th></tr></thead><tbody id="histBody"></tbody></table></div>
-    </details>
-  </section>
-
-  <section class="block explain" aria-labelledby="howTitle">
-    <h2 id="howTitle">How weekend and Monday rates work</h2>
-    <dl>
-      <dt>Do Friday night’s rates carry over to Saturday and Sunday?</dt>
-      <dd>Yes. Indian bullion exchanges (MCX) trade Monday to Friday only, and global gold trading stops on Friday at 5 PM New York time. That is <strong>Saturday 3:30 AM IST</strong> in winter (2:30 AM in US summer time). Between the Friday evening close in India and that moment the global price can still move a little, so the final Friday rate is the one that holds all weekend.</dd>
-      <dt>Do Indian rates follow only the US price?</dt>
-      <dd>Not only. The base is the <strong>international spot price in US dollars</strong> (London and New York set it, Asia trades it too), converted at the <strong>USD/INR</strong> rate, then <strong>import duty</strong> is added. Since 13 May 2026 that duty is 15% on gold and silver, and 3% GST applies when you buy. Your jeweller then adds a local premium or making charge.</dd>
-      <dt>If something happens in the US on Saturday or Sunday, when does India see it?</dt>
-      <dd>Nothing trades on the weekend, so the news shows up as a price gap when global trading reopens on Sunday at 6 PM New York time. That is <strong>Monday 4:30 AM IST</strong> in winter, which is before Indian markets open at 9 AM. Monday’s first rate in India therefore already contains the weekend news.</dd>
-      <dt>How is tomorrow’s estimate made?</dt>
-      <dd>From recent daily closes: current volatility sets the range, and a small share of recent momentum nudges the middle. Gold and silver are very hard to predict one day ahead, so read the range, not the single number. It is not investment advice.</dd>
-    </dl>
+    <figure class="chart"><div id="chart" role="img" aria-label="Daily closing rate chart"></div><div id="tip" class="tip" hidden></div></figure>
   </section>
 </main>
 
-<footer class="foot">
-  <div class="wrap">
-    <p><strong>Indicative rates.</strong> Calculated from international spot prices, the USD/INR rate and India’s import duty. Actual jeweller, city and bank rates differ because of local premiums, making charges and taxes. Exchange holidays are not modelled.</p>
-    <p class="muted small" id="sources"></p>
-  </div>
+<footer class="foot wrap">
+  <p>Indicative rates from global spot price, USD/INR and import duty. Jeweller and city rates differ. Estimates are not investment advice.</p>
+  <p class="muted" id="sources"></p>
 </footer>
 <script type="module" src="/app.js"></script>
 </body>
