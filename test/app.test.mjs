@@ -108,3 +108,12 @@ test('fallbacks: metals provider down -> Yahoo futures; everything down -> last 
   assert.ok(s2.warnings.length > 0);
   await assert.rejects(getSnapshot({ fetchImpl: dead, store: memoryStore(), now: new Date(), cfg }));
 });
+
+test('separate silver premium', () => {
+  const cfg = getConfig({ LOCAL_PREMIUM_PCT: '1.6', SILVER_PREMIUM_PCT: '10' });
+  const base = buildRates({ xau: 4000, xag: 50, usdInr: 88 }, getConfig({}));
+  const r = buildRates({ xau: 4000, xag: 50, usdInr: 88 }, cfg);
+  assert.ok(Math.abs(r.gold.perGram.k24 / base.gold.perGram.k24 - 1.016) < 1e-4);
+  assert.ok(Math.abs(r.silver.perGram / base.silver.perGram - 1.10) < 1e-4);
+  assert.equal(getConfig({ LOCAL_PREMIUM_PCT: '2' }).silverPremiumPct, 2);
+});

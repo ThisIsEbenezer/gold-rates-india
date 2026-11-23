@@ -52,7 +52,7 @@ function renderBoard() {
     row('', 'gold-dot', 'Gold 18K', `per ${u.gold} · 75%`, gold.k18 * m.gold * g, chgHtml(goldChg && { abs: goldChg.abs * 18 / 24, pct: goldChg.pct }, m.gold)) +
     row('', 'silver-dot', 'Silver', `per ${u.silver} · 99.9%`, r.rates.silver.perGram * m.silver * g, chgHtml(ref?.silver, m.silver), true);
   const duty = r.config.importDutyPct;
-  $('basis').textContent = `Includes ${duty}% import duty${r.config.premiumPct ? ` and ${r.config.premiumPct}% dealer premium` : ''}. ${state.gst ? `GST ${r.config.gstPct}% included.` : `GST ${r.config.gstPct}% not included.`}${ref ? ` Change shown ${ref.label}.` : ''}`;
+  $('basis').textContent = `Includes ${duty}% import duty${r.config.premiumPct || r.config.silverPremiumPct ? ' and a local dealer premium' : ''}. ${state.gst ? `GST ${r.config.gstPct}% included.` : `GST ${r.config.gstPct}% not included.`}${ref ? ` Change shown ${ref.label}.` : ''}`;
   $('thG').textContent = `Gold 24K / ${u.gold}`; $('thS').textContent = `Silver / ${u.silver}`;
   renderForecast(); renderToday(); renderHistory();
 }
