@@ -1,119 +1,158 @@
-const TZ = 'Asia/Kolkata';
+const TZ = 'Asia/Calcutta';
 const $ = (id) => document.getElementById(id);
 const state = { rates: null, history: null, unit: 'trade', gst: false, metal: 'gold' };
+const shown = new Map();          // element id -> last displayed number
+const seenTicks = new Set();      // log rows already on screen
+let lastMode = '', firstLoad = true, chartSig = '';
+const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-const inr0 = new Intl.NumberFormat('en-IN', { maximumFractionDigits: 0 });
-const inr2 = new Intl.NumberFormat('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-const fmt = (n, d = 0) => '₹' + (d ? inr2 : inr0).format(n);
-const time = (iso, o = {}) => new Intl.DateTimeFormat('en-IN', { timeZone: TZ, hour: '2-digit', minute: '2-digit', hour12: true, ...o }).format(new Date(iso));
-const dateLong = (s) => new Intl.DateTimeFormat('en-IN', { timeZone: 'UTC', weekday: 'long', day: 'numeric', month: 'short' }).format(new Date(s + 'T00:00:00Z'));
-const dateShort = (s) => new Intl.DateTimeFormat('en-IN', { timeZone: 'UTC', day: 'numeric', month: 'short' }).format(new Date(s + 'T00:00:00Z'));
+const nf0 = new Intl.NumberFormat('en-IN', { maximumFractionDigits: 0 });
+const nf2 = new Intl.NumberFormat('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const num = (n, d = 0) => (d ? nf2 : nf0).format(n);
+const inr = (n, d = 0) => '₹' + num(n, d);
+const clockFmt = new Intl.DateTimeFormat('en-GB', { timeZone: TZ, hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+const tm = (iso) => new Intl.DateTimeFormat('en-IN', { timeZone: TZ, hour: '2-digit', minute: '2-digit', hour12: true }).format(new Date(iso));
+const dShort = (s) => new Intl.DateTimeFormat('en-IN', { timeZone: 'UTC', day: 'numeric', month: 'short' }).format(new Date(s + 'T00:00:00Z'));
+const dDay = (s) => new Intl.DateTimeFormat('en-IN', { timeZone: 'UTC', weekday: 'short', day: 'numeric', month: 'short' }).format(new Date(s + 'T00:00:00Z'));
 
-// Unit multipliers: gold trades per 10 g, silver per kg in India.
 const mult = () => ({ gold: state.unit === 'trade' ? 10 : 1, silver: state.unit === 'trade' ? 1000 : 1 });
-const unitLabel = () => ({ gold: state.unit === 'trade' ? '10 g' : '1 g', silver: state.unit === 'trade' ? '1 kg' : '1 g' });
+const unitTxt = () => ({ gold: state.unit === 'trade' ? 'per 10 g' : 'per 1 g', silver: state.unit === 'trade' ? 'per 1 kg' : 'per 1 g' });
 const gstMul = () => (state.gst && state.rates ? 1 + state.rates.config.gstPct / 100 : 1);
-const d2 = (n) => (state.unit === 'trade' ? 0 : 2);
+const decs = () => (state.unit === 'trade' ? 0 : 2);
 
-function clock() {
-  $('clock').textContent = new Intl.DateTimeFormat('en-GB', { timeZone: TZ, hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' }).format(new Date());
+setInterval(() => { $('clock').textContent = clockFmt.format(new Date()); }, 1000);
+$('clock').textContent = clockFmt.format(new Date());
+
+/* ---------- animated numbers ---------- */
+const raf = new Map();
+function setNumber(id, value, dec, flashTarget) {
+  const el = $(id); if (!el) return;
+  const prev = shown.get(id);
+  shown.set(id, value);
+  const paint = (v) => { el.textContent = num(v, dec); };
+  cancelAnimationFrame(raf.get(id));
+  if (reduceMotion || prev === undefined && !firstLoad) { paint(value); return; }
+  const from = prev === undefined ? value * 0.9 : prev;
+  if (Math.abs(from - value) < 0.005) { paint(value); return; }
+  if (flashTarget && prev !== undefined && !state.modeChanged) {
+    const cls = value > prev ? 'up' : 'down';
+    flashTarget.classList.remove('up', 'down'); void flashTarget.offsetWidth; flashTarget.classList.add(cls);
+    setTimeout(() => flashTarget.classList.remove('up', 'down'), 1500);
+  }
+  const t0 = performance.now(), dur = prev === undefined ? 1100 : 800;
+  const step = (now) => {
+    const p = Math.min(1, (now - t0) / dur), e = 1 - Math.pow(1 - p, 3);
+    paint(from + (value - from) * e);
+    if (p < 1) raf.set(id, requestAnimationFrame(step)); else paint(value);
+  };
+  raf.set(id, requestAnimationFrame(step));
 }
-setInterval(clock, 1000); clock();
 
-function chgHtml(c, m = 1) {
-  if (!c) return '<span class="chg flat">–</span>';
-  const cls = c.abs > 0 ? 'up' : c.abs < 0 ? 'down' : 'flat';
+function setChip(id, c, m) {
+  const el = $(id); if (!el) return;
+  if (!c) { el.className = 'chip'; el.textContent = ''; return; }
+  const cls = c.abs > 0 ? 'up' : c.abs < 0 ? 'down' : '';
   const arrow = c.abs > 0 ? '▲' : c.abs < 0 ? '▼' : '■';
-  return `<span class="chg ${cls}">${arrow} ${fmt(Math.abs(c.abs * m * gstMul()), state.unit === 'trade' ? 0 : 2)} (${Math.abs(c.pct).toFixed(2)}%)</span>`;
+  const amount = inr(Math.abs(c.abs * m * gstMul()), decs());
+  const html = `<span class="arr">${arrow}</span>${amount} · ${Math.abs(c.pct).toFixed(2)}%`;
+  const changed = el.dataset.v !== html;
+  el.dataset.v = html; el.innerHTML = html;
+  el.className = 'chip ' + cls + (changed && !firstLoad ? ' bump' : '');
 }
 
+/* ---------- renderers ---------- */
 function renderStatus(r) {
-  const m = r.market;
-  const pill = $('statusPill');
-  pill.textContent = m.globalOpen ? 'Market open' : 'Market closed';
-  pill.className = 'pill ' + (m.globalOpen ? 'pill-open' : 'pill-closed');
-  const next = m.changesAtLabel ? (m.globalOpen ? ` Next break: ${m.changesAtLabel} IST.` : ` Reopens ${m.changesAtLabel} IST.`) : '';
-  $('statusText').textContent = m.note + next;
-  const alert = $('alert');
-  if (r.warnings?.length) { alert.hidden = false; alert.textContent = r.warnings.join(' '); } else alert.hidden = true;
-  $('updated').textContent = `Updated ${time(r.asOf, { second: '2-digit' })} IST`;
-  $('sources').textContent = r.spot.sources.length ? `Data: ${[...new Set(r.spot.sources)].join(', ')}. USD/INR ${r.spot.usdInr.toFixed(2)}, gold $${r.spot.xau.toFixed(2)}/oz, silver $${r.spot.xag.toFixed(2)}/oz.` : '';
+  const m = r.market, p = $('statusPill');
+  p.textContent = m.globalOpen ? 'Market open' : 'Market closed';
+  p.className = 'pill ' + (m.globalOpen ? 'open' : '');
+  $('statusText').textContent = m.globalOpen ? `Live · updated ${tm(r.asOf)} IST` : (m.changesAtLabel ? `Reopens ${m.changesAtLabel} IST` : '');
+  const a = $('alert');
+  if (r.warnings?.length) { a.hidden = false; a.textContent = r.warnings.join(' '); } else a.hidden = true;
+  const src = r.spot.sources.length ? `Gold $${r.spot.xau.toFixed(2)}/oz · Silver $${r.spot.xag.toFixed(2)}/oz · USD/INR ${r.spot.usdInr.toFixed(2)} · ${r.config.importDutyPct}% import duty` : '';
+  $('sources').textContent = src;
 }
 
 function renderBoard() {
   const r = state.rates; if (!r) return;
-  const m = mult(), u = unitLabel(), g = gstMul(), dec = d2();
+  const m = mult(), u = unitTxt(), g = gstMul(), d = decs();
+  const mode = `${state.unit}|${state.gst}`;
+  state.modeChanged = mode !== lastMode; lastMode = mode;
   const gold = r.rates.gold.perGram, ref = r.reference;
-  const row = (cls, dot, name, sub, val, ch, hero) => `<tr class="${hero ? 'hero' : ''}"><th scope="row" class="metal" style="font-size:1rem;color:inherit;padding:14px 0;border-bottom:1px solid var(--line)"><span class="${dot}"></span>${name}<small>${sub}</small></th><td class="num"><span class="big">${fmt(val, dec)}</span></td><td class="num">${ch}</td></tr>`;
-  const goldChg = ref?.gold;
-  $('ratesBody').innerHTML =
-    row('', 'gold-dot', 'Gold 24K', `per ${u.gold} · 99.9% pure`, gold.k24 * m.gold * g, chgHtml(goldChg, m.gold), true) +
-    row('', 'gold-dot', 'Gold 22K', `per ${u.gold} · 91.6%`, gold.k22 * m.gold * g, chgHtml(goldChg && { abs: goldChg.abs * 22 / 24, pct: goldChg.pct }, m.gold)) +
-    row('', 'gold-dot', 'Gold 18K', `per ${u.gold} · 75%`, gold.k18 * m.gold * g, chgHtml(goldChg && { abs: goldChg.abs * 18 / 24, pct: goldChg.pct }, m.gold)) +
-    row('', 'silver-dot', 'Silver', `per ${u.silver} · 99.9%`, r.rates.silver.perGram * m.silver * g, chgHtml(ref?.silver, m.silver), true);
-  const duty = r.config.importDutyPct;
-  $('basis').textContent = `Includes ${duty}% import duty${r.config.premiumPct || r.config.silverPremiumPct ? ' and a local dealer premium' : ''}. ${state.gst ? `GST ${r.config.gstPct}% included.` : `GST ${r.config.gstPct}% not included.`}${ref ? ` Change shown ${ref.label}.` : ''}`;
-  $('thG').textContent = `Gold 24K / ${u.gold}`; $('thS').textContent = `Silver / ${u.silver}`;
-  renderForecast(); renderToday(); renderHistory();
-}
-
-function rangeBar(low, exp, high) {
-  const pad = (high - low) * 0.25, lo = low - pad, hi = high + pad, p = (v) => ((v - lo) / (hi - lo)) * 100;
-  return `<div class="range-bar" aria-hidden="true"><b style="left:${p(low)}%;width:${p(high) - p(low)}%"></b><i style="left:calc(${p(exp)}% - 1px)"></i></div>`;
+  const gc = ref?.gold, sc = ref?.silver;
+  $('u-g24').textContent = u.gold; $('u-g22').textContent = u.gold; $('u-g18').textContent = u.gold; $('u-s').textContent = u.silver;
+  setNumber('v-g24', gold.k24 * m.gold * g, d, $('hero-price'));
+  setNumber('v-g22', gold.k22 * m.gold * g, d, $('v-g22').parentElement);
+  setNumber('v-g18', gold.k18 * m.gold * g, d, $('v-g18').parentElement);
+  setNumber('v-s', r.rates.silver.perGram * m.silver * g, d, $('v-s').parentElement);
+  setChip('c-g24', gc, m.gold);
+  setChip('c-g22', gc && { abs: gc.abs * 22 / 24, pct: gc.pct }, m.gold);
+  setChip('c-g18', gc && { abs: gc.abs * 18 / 24, pct: gc.pct }, m.gold);
+  setChip('c-s', sc, m.silver);
+  renderForecast(); renderLog(); renderChart(true);
 }
 
 function renderForecast() {
-  const r = state.rates; if (!r) return;
-  const f = r.forecast, m = mult(), u = unitLabel(), g = gstMul(), dec = d2();
-  if (!f.available) { $('fcBody').innerHTML = '<p class="muted">Not enough price history to make an estimate right now. Try again shortly.</p>'; return; }
-  const tomorrowName = dateLong(f.tomorrow);
-  const head = f.tomorrowIsTradingDay
-    ? `<p class="fc-date"><strong>${tomorrowName}</strong>, expected closing rate</p>`
-    : `<p class="fc-date"><strong>${tomorrowName}</strong>: Indian markets are closed, so the rate stays at the last close. First estimate is for <strong>${dateLong(f.targetDate)}</strong>.</p>`;
-  const block = (title, d, mm, unit) => {
-    const exp = d.expected * mm * g, lo = d.low * mm * g, hi = d.high * mm * g;
-    const dir = d.trend === 'up' ? '▲ Leaning up' : d.trend === 'down' ? '▼ Leaning down' : '■ No clear lean';
-    const cls = d.trend === 'up' ? 'up' : d.trend === 'down' ? 'down' : 'flat';
-    return `<div class="fc-row"><h3>${title} <span class="muted" style="font-weight:400">per ${unit}</span> <span class="badge ${cls}">${dir} · ${Math.round(d.probUp * 100)}% chance higher</span></h3>
-      <div class="fc-val">${fmt(exp, dec)}</div>${rangeBar(lo, exp, hi)}
-      <div class="fc-range">Likely range ${fmt(lo, dec)} to ${fmt(hi, dec)}</div></div>`;
+  const r = state.rates, f = r?.forecast; if (!f) return;
+  const m = mult(), g = gstMul(), d = decs(), u = unitTxt();
+  $('fcDate').textContent = f.tomorrowIsTradingDay ? dDay(f.targetDate) : `${dDay(f.tomorrow)} · closed`;
+  if (!f.available) { $('fcBody').innerHTML = '<p class="muted">Estimate unavailable right now.</p>'; return; }
+  const note = f.tomorrowIsTradingDay ? '' : `<p class="fc-range" style="margin:10px 0 0">Markets are shut tomorrow, so rates hold. Estimate is for ${dDay(f.targetDate)}.</p>`;
+  const row = (name, x, mm, unit) => {
+    const exp = x.expected * mm * g, lo = x.low * mm * g, hi = x.high * mm * g, pad = (hi - lo) * 0.35, a = lo - pad, b = hi + pad, p = (v) => ((v - a) / (b - a)) * 100;
+    const lean = x.trend === 'up' ? ['up', '▲ Up'] : x.trend === 'down' ? ['down', '▼ Down'] : ['', '■ Flat'];
+    return `<div class="fc-row"><div class="fc-top"><span class="fc-name">${name} <span class="unit">${unit}</span></span><span class="lean ${lean[0]}">${lean[1]} ${Math.round(Math.max(x.probUp, 1 - x.probUp) * 100)}%</span></div>
+      <div class="fc-val">${inr(exp, d)}</div>
+      <div class="range" aria-hidden="true"><b style="left:${p(lo)}%;width:${p(hi) - p(lo)}%"></b><i style="left:calc(${p(exp)}% - 1px)"></i></div>
+      <div class="fc-range">Likely ${inr(lo, d)} – ${inr(hi, d)}</div></div>`;
   };
-  $('fcBody').innerHTML = head + block('Gold 24K', f.gold, m.gold, u.gold) + block('Silver', f.silver, m.silver, u.silver) +
-    `<p class="fc-note">Statistical estimate from recent daily closes. The range covers roughly two out of three outcomes. Not investment advice.</p>`;
+  $('fcBody').innerHTML = row('Gold 24K', f.gold, m.gold, u.gold) + row('Silver', f.silver, m.silver, u.silver) + note;
 }
 
-function renderToday() {
-  const h = state.history, r = state.rates; if (!h) return;
-  const m = mult(), g = gstMul(), dec = d2();
-  const rows = h.today.revisions;
-  $('todayMeta').textContent = h.today.high ? `High ${fmt(h.today.high.g24 * m.gold * g, dec)} · Low ${fmt(h.today.low.g24 * m.gold * g, dec)} (gold 24K)` : '';
-  if (!rows.length) { $('logBody').innerHTML = '<tr><td colspan="5" class="muted">No changes recorded yet today. New rows appear whenever the rate moves meaningfully.</td></tr>'; return; }
-  const d = (v, mm) => v == null ? '<span class="flat">–</span>' : `<span class="${v > 0 ? 'up' : v < 0 ? 'down' : 'flat'}">${v > 0 ? '▲' : v < 0 ? '▼' : ''} ${fmt(Math.abs(v * mm * g), dec)}</span>`;
-  $('logBody').innerHTML = [...rows].reverse().map((x) => `<tr><td>${time(x.t)}${x.carried ? '<span class="tag">carried from last close</span>' : x.first ? '<span class="tag">first rate of the day</span>' : ''}</td><td class="num">${fmt(x.g24 * m.gold * g, dec)}</td><td class="num">${d(x.dG, m.gold)}</td><td class="num">${fmt(x.s * m.silver * g, dec)}</td><td class="num">${d(x.dS, m.silver)}</td></tr>`).join('');
+function renderLog() {
+  const h = state.history; if (!h) return;
+  const m = mult(), g = gstMul(), d = decs();
+  const rows = [...h.today.revisions].reverse().slice(0, 6);
+  if (!rows.length) { $('log').innerHTML = '<li class="muted">No changes yet today. New rates appear here as the price moves.</li>'; return; }
+  const html = rows.map((x) => {
+    const isNew = !firstLoad && !seenTicks.has(x.t) && seenTicks.size > 0;
+    const dv = x.dG == null ? null : x.dG * m.gold * g;
+    const cls = dv == null ? 'flat' : dv > 0 ? 'up' : dv < 0 ? 'down' : 'flat';
+    const delta = dv == null ? '–' : `${dv > 0 ? '▲' : dv < 0 ? '▼' : ''} ${inr(Math.abs(dv), d)}`;
+    const tag = x.carried ? 'Carried from last close' : x.first ? 'First rate of the day' : '';
+    return `<li class="${isNew ? 'enter' : ''}"><span class="t">${tm(x.t)}</span><span class="g">${inr(x.g24 * m.gold * g, d)}</span><span class="d ${cls}">${delta}</span><span class="tag">${tag ? tag + ' · ' : ''}Silver ${inr(x.s * m.silver * g, d)}</span></li>`;
+  }).join('');
+  [...h.today.revisions].forEach((x) => seenTicks.add(x.t));
+  $('log').innerHTML = html;
 }
 
-function renderHistory() {
+function renderChart(animate = true) {
   const h = state.history; if (!h || !h.daily.length) return;
   const m = mult(), g = gstMul(), key = state.metal === 'gold' ? 'g24' : 's', mm = state.metal === 'gold' ? m.gold : m.silver;
-  const pts = h.daily.map((d) => ({ date: d.date, v: d[key] * mm * g }));
-  $('histBody').innerHTML = [...h.daily].reverse().map((d) => `<tr><td>${dateShort(d.date)}</td><td class="num">${fmt(d.g24 * m.gold * g, d2())}</td><td class="num">${fmt(d.s * m.silver * g, d2())}</td></tr>`).join('');
-  drawChart(pts);
-}
-
-function drawChart(pts) {
-  const W = 960, H = 320, L = 64, R = 16, T = 16, B = 30;
-  const vs = pts.map((p) => p.v); let lo = Math.min(...vs), hi = Math.max(...vs); const pad = (hi - lo || hi * 0.01) * 0.12; lo -= pad; hi += pad;
+  const pts = h.daily.map((x) => ({ date: x.date, v: x[key] * mm * g }));
+  const box = $('chart'), W = Math.max(280, box.clientWidth || 640), H = W < 520 ? 210 : 290;
+  const sig = `${state.metal}|${state.unit}|${state.gst}|${pts.length}|${pts.at(-1).v.toFixed(0)}|${W}`;
+  if (sig === chartSig) return;
+  const first = chartSig === '' || chartSig.split('|')[0] !== state.metal;
+  chartSig = sig;
+  const L = W < 520 ? 46 : 58, R = 10, T = 14, B = 26;
+  const vs = pts.map((p) => p.v); let lo = Math.min(...vs), hi = Math.max(...vs); const pad = (hi - lo || hi * 0.01) * 0.15; lo -= pad; hi += pad;
   const x = (i) => L + (i * (W - L - R)) / Math.max(1, pts.length - 1), y = (v) => T + (1 - (v - lo) / (hi - lo)) * (H - T - B);
-  const color = state.metal === 'gold' ? '#8F6200' : '#516173';
-  const path = pts.map((p, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)},${y(p.v).toFixed(1)}`).join('');
+  const c1 = state.metal === 'gold' ? '#F6DD94' : '#E3EAF6', c2 = state.metal === 'gold' ? '#E0B24A' : '#AAB8D0';
+  const line = pts.map((p, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)},${y(p.v).toFixed(1)}`).join('');
+  const area = `${line}L${x(pts.length - 1)},${H - B}L${x(0)},${H - B}Z`;
   const ticks = [0, 1, 2, 3].map((k) => lo + ((hi - lo) * k) / 3);
-  const grid = ticks.map((t) => `<line x1="${L}" x2="${W - R}" y1="${y(t)}" y2="${y(t)}" stroke="#E3E7EC"/><text x="${L - 8}" y="${y(t) + 4}" text-anchor="end">${inr0.format(t)}</text>`).join('');
-  const step = Math.ceil(pts.length / 6);
-  const xl = pts.map((p, i) => (i % step === 0 || i === pts.length - 1) ? `<text x="${x(i)}" y="${H - 8}" text-anchor="middle">${dateShort(p.date)}</text>` : '').join('');
-  const last = pts.at(-1);
-  $('chart').innerHTML = `<svg viewBox="0 0 ${W} ${H}" aria-hidden="true">${grid}${xl}<path d="${path}" fill="none" stroke="${color}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/><circle cx="${x(pts.length - 1)}" cy="${y(last.v)}" r="5" fill="${color}" stroke="#fff" stroke-width="2"/><line id="xh" y1="${T}" y2="${H - B}" stroke="#9AA5B1" stroke-dasharray="3 3" visibility="hidden"/><circle id="dot" r="5" fill="${color}" stroke="#fff" stroke-width="2" visibility="hidden"/><rect x="${L}" y="${T}" width="${W - L - R}" height="${H - T - B}" fill="transparent" id="hit"/></svg>`;
-  $('chart').setAttribute('aria-label', `${state.metal === 'gold' ? 'Gold 24K' : 'Silver'} daily rate, ${pts.length} days, from ${fmt(pts[0].v)} to ${fmt(last.v)}`);
-  const svg = $('chart').querySelector('svg'), tip = $('tip');
+  const short = (n) => (n >= 1e5 ? (n / 1e5).toFixed(2) + 'L' : n >= 1000 ? (n / 1000).toFixed(n >= 1e4 ? 0 : 1) + 'k' : n.toFixed(0));
+  const grid = ticks.map((t) => `<line x1="${L}" x2="${W - R}" y1="${y(t)}" y2="${y(t)}" stroke="rgba(255,255,255,.07)"/><text x="${L - 8}" y="${y(t) + 4}" text-anchor="end">${short(t)}</text>`).join('');
+  const step = Math.ceil(pts.length / (W < 520 ? 4 : 7));
+  const xl = pts.map((p, i) => (i % step === 0 ? `<text x="${x(i)}" y="${H - 6}" text-anchor="middle">${dShort(p.date)}</text>` : '')).join('');
+  const last = pts.at(-1), isStatic = !(animate && first) || reduceMotion;
+  box.innerHTML = `<svg viewBox="0 0 ${W} ${H}" class="${isStatic ? 'static' : ''}"><defs><linearGradient id="lg" x1="0" x2="1"><stop offset="0" stop-color="${c2}"/><stop offset="1" stop-color="${c1}"/></linearGradient><linearGradient id="ag" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="${c2}" stop-opacity=".35"/><stop offset="1" stop-color="${c2}" stop-opacity="0"/></linearGradient></defs>${grid}${xl}
+    <path class="area" d="${area}" fill="url(#ag)"/><path class="line" d="${line}" fill="none" stroke="url(#lg)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="--len:${W * 3}"/>
+    <circle cx="${x(pts.length - 1)}" cy="${y(last.v)}" r="5" fill="${c1}" stroke="#0A0F1E" stroke-width="2"/>
+    <line id="xh" y1="${T}" y2="${H - B}" stroke="rgba(255,255,255,.35)" stroke-dasharray="3 3" visibility="hidden"/><circle id="dot" r="5" fill="#fff" stroke="#0A0F1E" stroke-width="2" visibility="hidden"/>
+    <rect id="hit" x="${L}" y="${T}" width="${W - L - R}" height="${H - T - B}" fill="transparent"/></svg>`;
+  box.setAttribute('aria-label', `${state.metal === 'gold' ? 'Gold 24K' : 'Silver'} daily rate for ${pts.length} days, from ${inr(pts[0].v)} to ${inr(last.v)}`);
+  const svg = box.querySelector('svg'), tip = $('tip');
   const move = (e) => {
     const b = svg.getBoundingClientRect(), px = ((e.clientX - b.left) / b.width) * W;
     const i = Math.max(0, Math.min(pts.length - 1, Math.round(((px - L) / (W - L - R)) * (pts.length - 1))));
@@ -121,28 +160,34 @@ function drawChart(pts) {
     const xh = svg.querySelector('#xh'), dot = svg.querySelector('#dot');
     xh.setAttribute('x1', sx); xh.setAttribute('x2', sx); xh.setAttribute('visibility', 'visible');
     dot.setAttribute('cx', sx); dot.setAttribute('cy', sy); dot.setAttribute('visibility', 'visible');
-    tip.hidden = false; tip.textContent = `${dateShort(p.date)}: ${fmt(p.v, d2())}`;
+    tip.hidden = false; tip.textContent = `${dShort(p.date)} · ${inr(p.v, decs())}`;
     tip.style.left = `${(sx / W) * b.width}px`; tip.style.top = `${(sy / H) * b.height}px`;
   };
+  const hide = () => { tip.hidden = true; svg.querySelector('#xh').setAttribute('visibility', 'hidden'); svg.querySelector('#dot').setAttribute('visibility', 'hidden'); };
   const hit = svg.querySelector('#hit');
-  hit.addEventListener('pointermove', move);
-  hit.addEventListener('pointerleave', () => { tip.hidden = true; svg.querySelector('#xh').setAttribute('visibility', 'hidden'); svg.querySelector('#dot').setAttribute('visibility', 'hidden'); });
+  hit.addEventListener('pointermove', move); hit.addEventListener('pointerdown', move); hit.addEventListener('pointerleave', hide);
 }
 
+/* ---------- data ---------- */
 async function load() {
   try {
-    const [r, h] = await Promise.all([fetch('/api/rates').then((x) => x.json().then((j) => { if (!x.ok) throw new Error(j.error || 'Rates unavailable'); return j; })), fetch('/api/history').then((x) => x.ok ? x.json() : null).catch(() => null)]);
+    const [r, h] = await Promise.all([
+      fetch('/api/rates').then(async (x) => { const j = await x.json(); if (!x.ok) throw new Error(j.error || 'Rates unavailable'); return j; }),
+      fetch('/api/history').then((x) => (x.ok ? x.json() : null)).catch(() => null),
+    ]);
     state.rates = r; if (h) state.history = h;
-    renderStatus(r); renderBoard();
+    renderStatus(r); renderBoard(); firstLoad = false;
   } catch (e) {
-    const a = $('alert'); a.hidden = false;
-    a.textContent = `Could not load live rates (${e.message}). Retrying automatically.`;
-    if (!state.rates) { $('statusPill').textContent = 'Offline'; $('statusPill').className = 'pill pill-closed'; }
+    const a = $('alert'); a.hidden = false; a.textContent = `Could not load live rates (${e.message}). Retrying…`;
+    if (!state.rates) { $('statusPill').textContent = 'Offline'; $('statusPill').className = 'pill'; }
   }
 }
 
-document.querySelectorAll('input[name=unit]').forEach((el) => el.addEventListener('change', () => { state.unit = el.value; renderBoard(); }));
-document.querySelectorAll('input[name=metal]').forEach((el) => el.addEventListener('change', () => { state.metal = el.value; renderHistory(); }));
-$('gst').addEventListener('change', (e) => { state.gst = e.target.checked; renderBoard(); });
-load(); setInterval(load, 60000);
+document.querySelectorAll('input[name=unit]').forEach((el) => el.addEventListener('change', () => { state.unit = el.value; chartSig = ''; renderBoard(); }));
+document.querySelectorAll('input[name=metal]').forEach((el) => el.addEventListener('change', () => { state.metal = el.value; chartSig = ''; renderChart(true); }));
+$('gst').addEventListener('change', (e) => { state.gst = e.target.checked; chartSig = ''; renderBoard(); });
+let rt; addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(() => renderChart(false), 150); });
+
+const pollSec = Math.max(3, Number(new URLSearchParams(location.search).get('poll')) || 30);
+load(); setInterval(load, pollSec * 1000);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) load(); });
