@@ -92,28 +92,27 @@ function renderBoard() {
 }
 
 function renderMorning() {
-  const r = state.rates, mo = r?.morning, box = $('morning');
-  if (!mo) { box.hidden = true; return; }
+  const r = state.rates, mo = r?.morning, ev = r?.evening, box = $('morning');
+  if (!mo && !ev) { box.hidden = true; return; }
   box.hidden = false;
-  const m = mult(), g = gstMul(), d = decs(), gold = r.rates.gold.perGram;
-  const label = mo.kind === 'today' ? `Fixed at ${tm(mo.t)} IST`
-    : mo.kind === 'first' ? `First rate today · ${tm(mo.t)} IST`
-    : `Last morning rate · ${dDay(mo.date)}`;
-  $('mSub').textContent = label;
-  const items = [
-    ['Gold 24K', mo.g24 * m.gold * g, gold.k24 * m.gold * g, m.gold, 'g'],
-    ['Gold 22K', mo.g22 * m.gold * g, gold.k22 * m.gold * g, m.gold, 'g'],
-    ['Gold 18K', mo.g18 * m.gold * g, gold.k18 * m.gold * g, m.gold, 'g'],
-    ['Silver', mo.s * m.silver * g, r.rates.silver.perGram * m.silver * g, m.silver, 's'],
+  const m = mult(), g = gstMul(), d = decs(), gold = r.rates.gold.perGram, u = unitTxt();
+  $('mUnit').textContent = `Gold ${u.gold} · Silver ${u.silver}`;
+    $('thMorn').textContent = mo ? (mo.kind === 'today' ? `Morning ${tm(mo.t)}` : mo.kind === 'first' ? `First rate ${tm(mo.t)}` : `Morning (${dDay(mo.date)})`) : 'Morning';
+  $('thEve').textContent = ev ? `Evening ${tm(ev.t)}` : 'Evening';
+  const rows = [
+    ['Gold 24K', 'g24', gold.k24 * m.gold * g, m.gold], ['Gold 22K', 'g22', gold.k22 * m.gold * g, m.gold],
+    ['Gold 18K', 'g18', gold.k18 * m.gold * g, m.gold], ['Silver', 's', r.rates.silver.perGram * m.silver * g, m.silver],
   ];
-  $('mGrid').innerHTML = items.map(([n, v, now]) => {
-    const diff = now - v, cls = Math.abs(diff) < 0.5 * (d ? 0.01 : 1) ? '' : diff > 0 ? 'up' : 'down';
-    const txt = cls ? `${diff > 0 ? '▲' : '▼'} ${inr(Math.abs(diff), d)} now` : 'Same as live';
-    return `<div class="m-item"><div class="n">${n} <span class="unit">${n === 'Silver' ? unitTxt().silver : unitTxt().gold}</span></div><div class="v">${inr(v, d)}</div><div class="d ${cls}">${txt}</div></div>`;
-  }).join('');
-  $('mNote').textContent = mo.kind === 'first'
-    ? 'The 10 AM update was missed today, so the first recorded rate is shown instead.'
-    : 'Indian rate sites usually publish this morning rate and hold it through the day. “Now” compares it with the live rate.';
+  const cell = (x, key, mm, live) => {
+    if (!x) return '<td class="num"><span class="pend">not set yet</span></td>';
+    const v = x[key] * mm * g, diff = live - v, cls = Math.abs(diff) < (d ? 0.01 : 0.5) ? '' : diff > 0 ? 'up' : 'down';
+    return `<td class="num"><span class="v">${inr(v, d)}</span><span class="dd ${cls}">${cls ? (diff > 0 ? '▲ ' : '▼ ') + inr(Math.abs(diff), d) + ' now' : 'same as live'}</span></td>`;
+  };
+  $('mBody').innerHTML = rows.map(([n, key, live, mm]) =>
+    `<tr><th scope="row" class="name">${n}</th>${cell(mo, key, mm, live)}${cell(ev, key, mm, live)}<td class="num"><span class="v live">${inr(live, d)}</span></td></tr>`).join('');
+  const parts = ['Most Indian shops and rate sites fix a rate in the morning and revise it in the evening (IBJA publishes about 5–6:30 PM). The market moves in between.'];
+  if (mo?.kind === 'first') parts.push('The morning update was missed today, so the first recorded rate is shown.');
+  $('mNote').textContent = parts.join(' ');
 }
 
 function renderForecast() {
@@ -127,8 +126,8 @@ function renderForecast() {
   const lean = (name, x) => { const c = x.trend === 'up' ? 'up' : x.trend === 'down' ? 'down' : ''; const t = x.trend === 'up' ? '▲ leaning up' : x.trend === 'down' ? '▼ leaning down' : '■ no clear lean'; return `<span class="lean ${c}">${name} ${t} · ${Math.round(Math.max(x.probUp, 1 - x.probUp) * 100)}%</span>`; };
   const A = r.accuracy;
   const fmtP = (v) => (v == null ? null : v.toFixed(1) + '%');
-  const track = A ? `<p class="ftrack">Track record (last ${A.days} day${A.days > 1 ? 's' : ''}): morning estimates were off by ${fmtP(A.goldMorningAbsPct)} on average for gold and ${fmtP(A.silverMorningAbsPct)} for silver${A.goldEveningAbsPct != null ? `; end-of-day by ${fmtP(A.goldEveningAbsPct)} and ${fmtP(A.silverEveningAbsPct)}` : ''}.</p>` : '<p class="ftrack">Track record appears here after the first full day of estimates.</p>';
-  $('fcBody').innerHTML = `<p class="fc-unit">Gold ${u.gold} · Silver ${u.silver}</p><div class="scroll"><table class="fc-table"><thead><tr><th scope="col"><span class="sr">Metal</span></th><th scope="col" class="num">Morning (${tm(f.morningAt)})</th><th scope="col" class="num">End of day</th></tr></thead><tbody>
+  const track = A ? `<p class="ftrack">Track record (last ${A.days} day${A.days > 1 ? 's' : ''}): morning estimates were off by ${fmtP(A.goldMorningAbsPct)} on average for gold and ${fmtP(A.silverMorningAbsPct)} for silver${A.goldEveningAbsPct != null ? `; evening by ${fmtP(A.goldEveningAbsPct)} and ${fmtP(A.silverEveningAbsPct)}` : ''}.</p>` : '<p class="ftrack">Track record appears here after the first full day of estimates.</p>';
+  $('fcBody').innerHTML = `<p class="fc-unit">Gold ${u.gold} · Silver ${u.silver}</p><div class="scroll"><table class="fc-table"><thead><tr><th scope="col"><span class="sr">Metal</span></th><th scope="col" class="num">Morning (${tm(f.morningAt)})</th><th scope="col" class="num">Evening (${tm(f.eveningAt)})</th></tr></thead><tbody>
     ${row('Gold 24K', f.gold, 1, m.gold)}${row('Gold 22K', f.gold, 22 / 24, m.gold)}${row('Gold 18K', f.gold, 18 / 24, m.gold)}${row('Silver', f.silver, 1, m.silver)}</tbody></table></div>
     <div class="lean-line">${lean('Gold', f.gold)}${lean('Silver', f.silver)}</div>${closedNote}${track}
     <p class="ftrack muted">Likely range under each value. Gold and silver cannot be predicted exactly; estimates are not investment advice.</p>`;

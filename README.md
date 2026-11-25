@@ -40,3 +40,14 @@ Local: `npm install && npx netlify dev`. Tests (mocked network): `npm test`. Moc
 ## Limits
 - Rates are indicative; jeweller/city/bank prices differ.
 - The estimate is a simple volatility/momentum model; one-day gold moves are close to random.
+
+## Shop rate times (Morning and Evening)
+
+Indian shops and rate sites fix a rate in the morning and revise it later in the day (IBJA publishes a second rate around 5-6:30 PM IST). The site captures two fixed shop rates each weekday and shows them next to the live rate:
+
+| Setting | Default | Env var |
+|---|---|---|
+| Morning rate | 10:00 IST | `MORNING_RATE_TIME` ("HH:MM") |
+| Evening rate | 17:30 IST | `EVENING_RATE_TIME` ("HH:MM") |
+
+Each is captured once, from the first update after the slot time, and only while the global market is open. The forecast table's Morning and Evening columns use the same times, and the track record scores each estimate against the captured rate.
