@@ -52,6 +52,6 @@ Indian shops and rate sites fix a rate in the morning and revise it later in the
 
 Each is captured once, from the first update after the slot time, and only while the global market is open. The forecast table's Morning and Evening columns use the same times, and the track record scores each estimate against the captured rate.
 
-## Matching your local shop (optional)
+## Matching your shop's price (calibration)
 
-Defaults are `LOCAL_PREMIUM_PCT=2.1` (gold) and `SILVER_PREMIUM_PCT=19`, which land within about 0.5% of Indian retail rates with no setup. To match your shop exactly, set `CALIBRATE_PIN` in Netlify, open `/calibrate.html`, and enter the shop's 24K and silver per-gram rates. The site then stores the implied premium and applies it to the live price until you enter a new one. Env vars set in Netlify override the defaults but not a saved calibration.
+Shops add their own margin, and it changes a little each day. Open `/calibrate.html`, enter the shop's 24K and silver price per gram and your PIN. The site works out the premium that matches those prices at the current spot rate, saves it, and keeps following the market from there. Set `CALIBRATE_PIN` in Netlify first. A saved calibration overrides `LOCAL_PREMIUM_PCT` and `SILVER_PREMIUM_PCT`.

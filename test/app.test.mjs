@@ -187,16 +187,15 @@ test('forecast evening target matches the shop evening time', async () => {
   assert.match(formatIST(new Date(s.forecast.eveningAt)), /05:30 pm/i);
 });
 
-test('calibration: saved shop rate overrides premiums and reproduces the shop price', async () => {
-  const { premiumFor, saveCalibration } = await import('../lib/calibration.mjs');
-  const store = memoryStore(), cfg = getConfig({ LOCAL_PREMIUM_PCT: '0', SILVER_PREMIUM_PCT: '0' });
-  const f = mockFetch({ xau: 3548.7, xag: 40.583, fx: 92.925 });
-  const base = await getSnapshot({ fetchImpl: f, store, cfg, now: new Date('2026-11-25T04:59:00Z'), record: false, useCalibration: false });
-  const goldPct = premiumFor(12458, base.spot.xau, base.spot.usdInr, cfg), silverPct = premiumFor(165, base.spot.xag, base.spot.usdInr, cfg);
-  await saveCalibration(store, { goldPct, silverPct, gold24: 12458, silver: 165 });
-  const s = await getSnapshot({ fetchImpl: f, store, cfg, now: new Date('2026-11-25T04:59:00Z'), record: false });
-  assert.ok(Math.abs(s.rates.gold.perGram.k24 - 12458) < 1);
-  assert.ok(Math.abs(s.rates.gold.perGram.k22 - 11419.8) < 1);
-  assert.ok(Math.abs(s.rates.silver.perGram - 165) < 0.5);
+test('calibration: saved shop price makes the site match it, and survives later calls', async () => {
+  const { saveCalibration } = await import('../lib/calibrate.mjs');
+  const store = memoryStore(); const cfg = getConfig({});
+  const now = D('2026-11-25T05:00:00Z');
+  await saveCalibration({ store, spot: { xau: 4000, xag: 50 }, usdInr: 88, cfg, shop: { g24: 12458, s: 165 }, now });
+  const s = await getSnapshot({ fetchImpl: mockFetch({ xau: 4000, xag: 50, fx: 88 }), store, now, cfg });
+  assert.ok(Math.abs(s.rates.gold.perGram.k24 - 12458) < 1, String(s.rates.gold.perGram.k24));
+  assert.ok(Math.abs(s.rates.gold.perGram.k22 - 11419.83) < 1);
+  assert.ok(Math.abs(s.rates.silver.perGram - 165) < 0.1);
   assert.ok(s.config.calibratedAt);
+  await assert.rejects(saveCalibration({ store, spot: { xau: 4000, xag: 50 }, usdInr: 88, cfg, shop: { g24: 99999, s: 0 }, now }), /looks wrong/);
 });

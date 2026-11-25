@@ -111,6 +111,7 @@ function renderMorning() {
   $('mBody').innerHTML = rows.map(([n, key, live, mm]) =>
     `<tr><th scope="row" class="name">${n}</th>${cell(mo, key, mm, live)}${cell(ev, key, mm, live)}<td class="num"><span class="v live">${inr(live, d)}</span></td></tr>`).join('');
   const parts = ['Most Indian shops and rate sites fix a rate in the morning and revise it in the evening (IBJA publishes about 5–6:30 PM). The market moves in between.'];
+  if (r.config.calibratedAt) parts.push(`Live rates are matched to shop prices as of ${new Intl.DateTimeFormat('en-IN', { timeZone: TZ, day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', hour12: true }).format(new Date(r.config.calibratedAt))} IST.`);
   if (mo?.kind === 'first') parts.push('The morning update was missed today, so the first recorded rate is shown.');
   if (r.config.calibratedAt) parts.unshift(`Now matches the shop rate you entered at ${tm(r.config.calibratedAt)} IST.`);
   $('mNote').textContent = parts.join(' ');
@@ -169,19 +170,19 @@ function renderChart(animate = true) {
   const L = W < 520 ? 46 : 58, R = 10, T = 14, B = 26;
   const vs = pts.map((p) => p.v); let lo = Math.min(...vs), hi = Math.max(...vs); const pad = (hi - lo || hi * 0.01) * 0.15; lo -= pad; hi += pad;
   const x = (i) => L + (i * (W - L - R)) / Math.max(1, pts.length - 1), y = (v) => T + (1 - (v - lo) / (hi - lo)) * (H - T - B);
-  const c1 = state.metal === 'gold' ? '#E3B84F' : '#97A4BA', c2 = state.metal === 'gold' ? '#A8740C' : '#5F6E8A';
+  const c1 = state.metal === 'gold' ? '#EBCB73' : '#B9C3D8', c2 = state.metal === 'gold' ? '#C9952A' : '#7C89A5';
   const line = pts.map((p, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)},${y(p.v).toFixed(1)}`).join('');
   const area = `${line}L${x(pts.length - 1)},${H - B}L${x(0)},${H - B}Z`;
   const ticks = [0, 1, 2, 3].map((k) => lo + ((hi - lo) * k) / 3);
   const short = (n) => (n >= 1e5 ? (n / 1e5).toFixed(2) + 'L' : n >= 1000 ? (n / 1000).toFixed(n >= 1e4 ? 0 : 1) + 'k' : n.toFixed(0));
-  const grid = ticks.map((t) => `<line x1="${L}" x2="${W - R}" y1="${y(t)}" y2="${y(t)}" stroke="rgba(20,24,43,.08)"/><text x="${L - 8}" y="${y(t) + 4}" text-anchor="end">${short(t)}</text>`).join('');
+  const grid = ticks.map((t) => `<line x1="${L}" x2="${W - R}" y1="${y(t)}" y2="${y(t)}" stroke="rgba(18,22,43,.08)"/><text x="${L - 8}" y="${y(t) + 4}" text-anchor="end">${short(t)}</text>`).join('');
   const step = Math.ceil(pts.length / (W < 520 ? 4 : 7));
   const xl = pts.map((p, i) => (i % step === 0 ? `<text x="${x(i)}" y="${H - 6}" text-anchor="middle">${dShort(p.date)}</text>` : '')).join('');
   const last = pts.at(-1), isStatic = !(animate && first) || reduceMotion;
   box.innerHTML = `<svg viewBox="0 0 ${W} ${H}" class="${isStatic ? 'static' : ''}"><defs><linearGradient id="lg" x1="0" x2="1"><stop offset="0" stop-color="${c2}"/><stop offset="1" stop-color="${c1}"/></linearGradient><linearGradient id="ag" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="${c2}" stop-opacity=".35"/><stop offset="1" stop-color="${c2}" stop-opacity="0"/></linearGradient></defs>${grid}${xl}
     <path class="area" d="${area}" fill="url(#ag)"/><path class="line" d="${line}" fill="none" stroke="url(#lg)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="--len:${W * 3}"/>
     <circle cx="${x(pts.length - 1)}" cy="${y(last.v)}" r="5" fill="${c1}" stroke="#fff" stroke-width="2"/>
-    <line id="xh" y1="${T}" y2="${H - B}" stroke="rgba(20,24,43,.4)" stroke-dasharray="3 3" visibility="hidden"/><circle id="dot" r="5" fill="#14182B" stroke="#fff" stroke-width="2" visibility="hidden"/>
+    <line id="xh" y1="${T}" y2="${H - B}" stroke="rgba(18,22,43,.35)" stroke-dasharray="3 3" visibility="hidden"/><circle id="dot" r="5" fill="#12162B" stroke="#fff" stroke-width="2" visibility="hidden"/>
     <rect id="hit" x="${L}" y="${T}" width="${W - L - R}" height="${H - T - B}" fill="transparent"/></svg>`;
   box.setAttribute('aria-label', `${state.metal === 'gold' ? 'Gold 24K' : 'Silver'} daily rate for ${pts.length} days, from ${inr(pts[0].v)} to ${inr(last.v)}`);
   const svg = box.querySelector('svg'), tip = $('tip');
