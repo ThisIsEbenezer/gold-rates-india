@@ -153,3 +153,8 @@ main.wrap{padding-top:18px}
   *,*::before,*::after{animation:none!important;transition:none!important}
   #chart .line{stroke-dashoffset:0}#chart .area{opacity:1}
 }
+.shop{border-top:3px solid #D9A63A}
+@media (max-width:620px){
+  .shoprate .name{white-space:normal;font-size:.8rem;width:30%}
+  .shoprate .v{font-size:.84rem}.shoprate th,.shoprate td{padding-left:2px}
+}
