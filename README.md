@@ -1,4 +1,4 @@
-# Bhav Board – Gold & Silver Rates (India, IST)
+# Sam’s Gold Prediction – Gold & Silver Rates (India, IST)
 
 Static site + Netlify Functions. No build step, no API keys.
 
@@ -7,6 +7,10 @@ Static site + Netlify Functions. No build step, no API keys.
 - Next-day estimate with a likely range (statistical, not advice). If tomorrow is Sat/Sun it says rates stay at Friday's close and estimates Monday.
 - Today's price-change log (a row is added when gold moves ≥0.15% or silver ≥0.3%), plus open/high/low/close per day and a 30-day chart.
 - Everything in Indian Standard Time.
+
+## Morning rate, estimates and track record
+- **Morning rate:** captured once each weekday at the first update on/after 10:00 AM IST (change with `MORNING_RATE_TIME`, e.g. `10:30`) and held all day, like Indian rate sites do. Shown next to the live rate.
+- **Tomorrow’s estimate:** projects the live price to tomorrow’s morning and end of day using recent volatility. It also stores each estimate and later compares it with the real morning rate, shown as a track record.
 
 ## How the rate is computed
 `USD/oz spot ÷ 31.1035 × USD/INR × (1 + import duty) [× (1 + premium)]`

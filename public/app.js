@@ -88,40 +88,72 @@ function renderBoard() {
   setChip('c-g22', gc && { abs: gc.abs * 22 / 24, pct: gc.pct }, m.gold);
   setChip('c-g18', gc && { abs: gc.abs * 18 / 24, pct: gc.pct }, m.gold);
   setChip('c-s', sc, m.silver);
-  renderForecast(); renderLog(); renderChart(true);
+  renderMorning(); renderForecast(); renderLog(); renderChart(true);
+}
+
+function renderMorning() {
+  const r = state.rates, mo = r?.morning, box = $('morning');
+  if (!mo) { box.hidden = true; return; }
+  box.hidden = false;
+  const m = mult(), g = gstMul(), d = decs(), gold = r.rates.gold.perGram;
+  const label = mo.kind === 'today' ? `Fixed at ${tm(mo.t)} IST`
+    : mo.kind === 'first' ? `First rate today · ${tm(mo.t)} IST`
+    : `Last morning rate · ${dDay(mo.date)}`;
+  $('mSub').textContent = label;
+  const items = [
+    ['Gold 24K', mo.g24 * m.gold * g, gold.k24 * m.gold * g, m.gold, 'g'],
+    ['Gold 22K', mo.g22 * m.gold * g, gold.k22 * m.gold * g, m.gold, 'g'],
+    ['Gold 18K', mo.g18 * m.gold * g, gold.k18 * m.gold * g, m.gold, 'g'],
+    ['Silver', mo.s * m.silver * g, r.rates.silver.perGram * m.silver * g, m.silver, 's'],
+  ];
+  $('mGrid').innerHTML = items.map(([n, v, now]) => {
+    const diff = now - v, cls = Math.abs(diff) < 0.5 * (d ? 0.01 : 1) ? '' : diff > 0 ? 'up' : 'down';
+    const txt = cls ? `${diff > 0 ? '▲' : '▼'} ${inr(Math.abs(diff), d)} now` : 'Same as live';
+    return `<div class="m-item"><div class="n">${n} <span class="unit">${n === 'Silver' ? unitTxt().silver : unitTxt().gold}</span></div><div class="v">${inr(v, d)}</div><div class="d ${cls}">${txt}</div></div>`;
+  }).join('');
+  $('mNote').textContent = mo.kind === 'first'
+    ? 'The 10 AM update was missed today, so the first recorded rate is shown instead.'
+    : 'Indian rate sites usually publish this morning rate and hold it through the day. “Now” compares it with the live rate.';
 }
 
 function renderForecast() {
   const r = state.rates, f = r?.forecast; if (!f) return;
   const m = mult(), g = gstMul(), d = decs(), u = unitTxt();
-  $('fcDate').textContent = f.tomorrowIsTradingDay ? dDay(f.targetDate) : `${dDay(f.tomorrow)} · closed`;
+  $('fcDate').textContent = f.tomorrowIsTradingDay ? dDay(f.targetDate) : `${dDay(f.tomorrow)} · market closed`;
   if (!f.available) { $('fcBody').innerHTML = '<p class="muted">Estimate unavailable right now.</p>'; return; }
-  const note = f.tomorrowIsTradingDay ? '' : `<p class="fc-range" style="margin:10px 0 0">Markets are shut tomorrow, so rates hold. Estimate is for ${dDay(f.targetDate)}.</p>`;
-  const row = (name, x, mm, unit) => {
-    const exp = x.expected * mm * g, lo = x.low * mm * g, hi = x.high * mm * g, pad = (hi - lo) * 0.35, a = lo - pad, b = hi + pad, p = (v) => ((v - a) / (b - a)) * 100;
-    const lean = x.trend === 'up' ? ['up', '▲ Up'] : x.trend === 'down' ? ['down', '▼ Down'] : ['', '■ Flat'];
-    return `<div class="fc-row"><div class="fc-top"><span class="fc-name">${name} <span class="unit">${unit}</span></span><span class="lean ${lean[0]}">${lean[1]} ${Math.round(Math.max(x.probUp, 1 - x.probUp) * 100)}%</span></div>
-      <div class="fc-val">${inr(exp, d)}</div>
-      <div class="range" aria-hidden="true"><b style="left:${p(lo)}%;width:${p(hi) - p(lo)}%"></b><i style="left:calc(${p(exp)}% - 1px)"></i></div>
-      <div class="fc-range">Likely ${inr(lo, d)} – ${inr(hi, d)}</div></div>`;
-  };
-  $('fcBody').innerHTML = row('Gold 24K', f.gold, m.gold, u.gold) + row('Silver', f.silver, m.silver, u.silver) + note;
+  const closedNote = f.tomorrowIsTradingDay ? '' : `<p class="ftrack">Indian markets are shut tomorrow, so rates hold. These estimates are for ${dDay(f.targetDate)}.</p>`;
+  const cell = (x, k, mm) => { const v = x[k]; return `<td class="num"><span class="v">${inr(v.expected * mm * g, d)}</span><span class="r">${num(v.low * mm * g, d)} – ${num(v.high * mm * g, d)}</span></td>`; };
+  const row = (name, x, ratio, mm) => `<tr><th scope="row" class="name">${name}</th>${cell(x, 'morning', mm * ratio)}${cell(x, 'evening', mm * ratio)}</tr>`;
+  const lean = (name, x) => { const c = x.trend === 'up' ? 'up' : x.trend === 'down' ? 'down' : ''; const t = x.trend === 'up' ? '▲ leaning up' : x.trend === 'down' ? '▼ leaning down' : '■ no clear lean'; return `<span class="lean ${c}">${name} ${t} · ${Math.round(Math.max(x.probUp, 1 - x.probUp) * 100)}%</span>`; };
+  const A = r.accuracy;
+  const fmtP = (v) => (v == null ? null : v.toFixed(1) + '%');
+  const track = A ? `<p class="ftrack">Track record (last ${A.days} day${A.days > 1 ? 's' : ''}): morning estimates were off by ${fmtP(A.goldMorningAbsPct)} on average for gold and ${fmtP(A.silverMorningAbsPct)} for silver${A.goldEveningAbsPct != null ? `; end-of-day by ${fmtP(A.goldEveningAbsPct)} and ${fmtP(A.silverEveningAbsPct)}` : ''}.</p>` : '<p class="ftrack">Track record appears here after the first full day of estimates.</p>';
+  $('fcBody').innerHTML = `<p class="fc-unit">Gold ${u.gold} · Silver ${u.silver}</p><div class="scroll"><table class="fc-table"><thead><tr><th scope="col"><span class="sr">Metal</span></th><th scope="col" class="num">Morning (${tm(f.morningAt)})</th><th scope="col" class="num">End of day</th></tr></thead><tbody>
+    ${row('Gold 24K', f.gold, 1, m.gold)}${row('Gold 22K', f.gold, 22 / 24, m.gold)}${row('Gold 18K', f.gold, 18 / 24, m.gold)}${row('Silver', f.silver, 1, m.silver)}</tbody></table></div>
+    <div class="lean-line">${lean('Gold', f.gold)}${lean('Silver', f.silver)}</div>${closedNote}${track}
+    <p class="ftrack muted">Likely range under each value. Gold and silver cannot be predicted exactly; estimates are not investment advice.</p>`;
 }
 
 function renderLog() {
   const h = state.history; if (!h) return;
   const m = mult(), g = gstMul(), d = decs();
-  const rows = [...h.today.revisions].reverse().slice(0, 6);
-  if (!rows.length) { $('log').innerHTML = '<li class="muted">No changes yet today. New rates appear here as the price moves.</li>'; return; }
+  const rows = [...h.today.revisions].reverse();
+  $('logMeta').textContent = rows.length ? `${rows.length} update${rows.length > 1 ? 's' : ''} today` : '';
+  if (!rows.length) { $('log').innerHTML = '<tr><td colspan="5" class="muted">No changes yet today. New rates appear here as the price moves.</td></tr>'; return; }
+  const cellHtml = (price, delta) => {
+    const dv = delta == null ? null : delta * g;
+    const cls = dv == null ? 'flat' : dv > 0 ? 'up' : dv < 0 ? 'down' : 'flat';
+    const txt = dv == null ? '' : `${dv > 0 ? '▲' : dv < 0 ? '▼' : ''} ${inr(Math.abs(dv), d)}`;
+    return `<td class="num"><span class="p">${inr(price * g, d)}</span><span class="dl ${cls}">${txt}</span></td>`;
+  };
   const html = rows.map((x) => {
     const isNew = !firstLoad && !seenTicks.has(x.t) && seenTicks.size > 0;
-    const dv = x.dG == null ? null : x.dG * m.gold * g;
-    const cls = dv == null ? 'flat' : dv > 0 ? 'up' : dv < 0 ? 'down' : 'flat';
-    const delta = dv == null ? '–' : `${dv > 0 ? '▲' : dv < 0 ? '▼' : ''} ${inr(Math.abs(dv), d)}`;
     const tag = x.carried ? 'Carried from last close' : x.first ? 'First rate of the day' : '';
-    return `<li class="${isNew ? 'enter' : ''}"><span class="t">${tm(x.t)}</span><span class="g">${inr(x.g24 * m.gold * g, d)}</span><span class="d ${cls}">${delta}</span><span class="tag">${tag ? tag + ' · ' : ''}Silver ${inr(x.s * m.silver * g, d)}</span></li>`;
+    const g24 = x.g24 * m.gold, s = x.s * m.silver;
+    const dG = x.dG == null ? null : x.dG * m.gold, dS = x.dS == null ? null : x.dS * m.silver;
+    return `<tr class="${isNew ? 'enter' : ''}"><td class="t">${tm(x.t)}${tag ? `<span class="tg">${tag}</span>` : ''}</td>${cellHtml(g24, dG)}${cellHtml(g24 * 22 / 24, dG == null ? null : dG * 22 / 24)}${cellHtml(g24 * 18 / 24, dG == null ? null : dG * 18 / 24)}${cellHtml(s, dS)}</tr>`;
   }).join('');
-  [...h.today.revisions].forEach((x) => seenTicks.add(x.t));
+  h.today.revisions.forEach((x) => seenTicks.add(x.t));
   $('log').innerHTML = html;
 }
 
@@ -188,6 +220,7 @@ document.querySelectorAll('input[name=metal]').forEach((el) => el.addEventListen
 $('gst').addEventListener('change', (e) => { state.gst = e.target.checked; chartSig = ''; renderBoard(); });
 let rt; addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(() => renderChart(false), 150); });
 
+const yr = $('yr'); if (yr) yr.textContent = new Date().getFullYear();
 const pollSec = Math.max(3, Number(new URLSearchParams(location.search).get('poll')) || 30);
 load(); setInterval(load, pollSec * 1000);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) load(); });
