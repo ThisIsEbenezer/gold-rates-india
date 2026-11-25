@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Gold &amp; Silver Rate Today in India · Live in IST</title>
+<title>Sam’s Gold Prediction · Gold &amp; Silver Rate Today in India (IST)</title>
 <meta name="description" content="Live gold and silver rates in India in rupees, today's price changes and tomorrow's estimate. All times in IST.">
 <meta name="theme-color" content="#0A0F1E">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
@@ -17,7 +17,7 @@
 
 <header class="bar">
   <div class="wrap bar-in">
-    <div class="brand"><svg width="26" height="26" viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="16" fill="#171F36"/><path d="M14 42h36l-6-14H20z" fill="#C8961E"/><path d="M22 28h20l-4-8H26z" fill="#F1CF7A"/></svg><span>Bhav</span></div>
+    <div class="brand"><svg width="26" height="26" viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="16" fill="#171F36"/><path d="M14 42h36l-6-14H20z" fill="#C8961E"/><path d="M22 28h20l-4-8H26z" fill="#F1CF7A"/></svg><span>Sam’s Gold Prediction</span></div>
     <div class="clock"><span id="clock">--:--:--</span><span class="tz">IST</span></div>
   </div>
 </header>
@@ -27,7 +27,7 @@
 
   <section class="hero" aria-labelledby="heroLabel">
     <div class="status"><span id="statusPill" class="pill">Loading</span><span id="statusText" class="muted"></span></div>
-    <h1 id="heroLabel" class="hero-label">Gold 24K <span id="u-g24" class="unit">per 10 g</span></h1>
+    <h1 id="heroLabel" class="hero-label">Gold 24K · live <span id="u-g24" class="unit">per 10 g</span></h1>
     <div class="hero-price" id="hero-price"><span class="rs">₹</span><span id="v-g24" class="metal">––,–––</span></div>
     <div class="chip" id="c-g24" aria-live="polite"></div>
 
@@ -46,17 +46,26 @@
     <article class="card silver"><h2>Silver <span id="u-s" class="unit"></span></h2><div class="val"><span class="rs">₹</span><span id="v-s">–</span></div><div class="chip" id="c-s"></div></article>
   </section>
 
-  <div class="two">
-    <section class="panel" aria-labelledby="fcT">
-      <h2 id="fcT">Tomorrow <span id="fcDate" class="unit"></span></h2>
-      <div id="fcBody"><p class="muted">Calculating…</p></div>
-    </section>
+  <section class="panel morning" id="morning" aria-labelledby="mT" hidden>
+    <div class="panel-head"><h2 id="mT">Morning rate</h2><span id="mSub" class="unit"></span></div>
+    <div class="m-grid" id="mGrid"></div>
+    <p class="fc-range" id="mNote"></p>
+  </section>
 
-    <section class="panel" aria-labelledby="logT">
-      <h2 id="logT">Today’s changes</h2>
-      <ol id="log" class="log"><li class="muted">Loading…</li></ol>
-    </section>
-  </div>
+  <section class="panel" aria-labelledby="fcT">
+    <div class="panel-head"><h2 id="fcT">Tomorrow’s estimate</h2><span id="fcDate" class="unit"></span></div>
+    <div id="fcBody"><p class="muted">Calculating…</p></div>
+  </section>
+
+  <section class="panel" aria-labelledby="logT">
+    <div class="panel-head"><h2 id="logT">Today’s price changes</h2><span id="logMeta" class="unit"></span></div>
+    <div class="scroll log-scroll" tabindex="0" role="region" aria-label="Today's price changes, scrollable">
+      <table class="logt">
+        <thead><tr><th scope="col">Time</th><th scope="col" class="num">Gold 24K</th><th scope="col" class="num">Gold 22K</th><th scope="col" class="num">Gold 18K</th><th scope="col" class="num">Silver</th></tr></thead>
+        <tbody id="log"><tr><td colspan="5" class="muted">Loading…</td></tr></tbody>
+      </table>
+    </div>
+  </section>
 
   <section class="panel chart-panel" aria-labelledby="chT">
     <div class="panel-head">
@@ -73,6 +82,7 @@
 <footer class="foot wrap">
   <p>Indicative rates from global spot price, USD/INR and import duty. Jeweller and city rates differ. Estimates are not investment advice.</p>
   <p class="muted" id="sources"></p>
+  <p class="copy">© <span id="yr">2026</span> <a href="https://www.instagram.com/ThisIs_Ebenezer/" target="_blank" rel="noopener noreferrer">ThisIs_Ebenezer</a>. All rights reserved.</p>
 </footer>
 <script type="module" src="/app.js"></script>
 </body>

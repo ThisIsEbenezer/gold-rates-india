@@ -66,7 +66,10 @@ test('snapshot on a Sunday: market closed, rates computed, forecast targets Mond
   assert.equal(s.forecast.targetDate, '2026-11-23');
   assert.equal(s.forecast.tomorrowIsTradingDay, true);
   assert.equal(s.forecast.available, true);
-  assert.ok(s.forecast.gold.low < s.forecast.gold.expected && s.forecast.gold.expected < s.forecast.gold.high);
+  const fe = s.forecast.gold.evening, fm = s.forecast.gold.morning;
+  assert.ok(fe.low < fe.expected && fe.expected < fe.high);
+  assert.ok(fm.low < fm.expected && fm.expected < fm.high);
+  assert.ok((fm.high - fm.low) < (fe.high - fe.low));   // morning is closer in time, so tighter range
   assert.ok(Math.abs(s.rates.gold.perGram.k24 - (4000 / 31.1034768) * 88 * 1.15) < 0.01);
   assert.ok(s.reference && s.reference.gold);
   const t = await readToday({ store, now });
@@ -116,4 +119,44 @@ test('separate silver premium', () => {
   assert.ok(Math.abs(r.gold.perGram.k24 / base.gold.perGram.k24 - 1.016) < 1e-4);
   assert.ok(Math.abs(r.silver.perGram / base.silver.perGram - 1.10) < 1e-4);
   assert.equal(getConfig({ LOCAL_PREMIUM_PCT: '2' }).silverPremiumPct, 2);
+});
+
+test('morning rate: captured once at 10 AM IST window, kept all day', async () => {
+  const store = memoryStore(); const cfg = getConfig({});
+  const a = await getSnapshot({ fetchImpl: mockFetch({ xau: 4000 }), store, now: D('2026-11-24T04:40:00Z'), cfg }); // 10:10 IST Tue
+  assert.equal(a.morning.kind, 'today');
+  const first = a.morning.g24;
+  const b = await getSnapshot({ fetchImpl: mockFetch({ xau: 3900 }), store, now: D('2026-11-24T17:00:00Z'), cfg }); // 22:30 IST
+  assert.equal(b.morning.kind, 'today');
+  assert.equal(b.morning.g24, first);                       // not overwritten
+  assert.ok(b.rates.gold.perGram.k24 < first);               // live moved, morning did not
+  assert.ok(Math.abs(b.morning.g22 - first * 22 / 24) < 0.01);
+});
+
+test('morning rate fallbacks: before 10 AM = previous day; late deploy = first rate; weekend = last weekday', async () => {
+  const cfg = getConfig({});
+  const store = memoryStore();
+  await getSnapshot({ fetchImpl: mockFetch({ xau: 4000 }), store, now: D('2026-11-23T04:40:00Z'), cfg });       // Mon 10:10 IST captured
+  const pre = await getSnapshot({ fetchImpl: mockFetch({ xau: 4010 }), store, now: D('2026-11-24T02:30:00Z'), cfg }); // Tue 08:00 IST
+  assert.equal(pre.morning.kind, 'previous'); assert.equal(pre.morning.date, '2026-11-23');
+  const wk = await getSnapshot({ fetchImpl: mockFetch({ xau: 4010 }), store, now: D('2026-11-21T10:00:00Z'), cfg });  // Sat
+  assert.equal(wk.morning.kind, 'previous');
+  const late = memoryStore();
+  const l = await getSnapshot({ fetchImpl: mockFetch({ xau: 4000 }), store: late, now: D('2026-11-24T17:00:00Z'), cfg }); // first run at 22:30 IST
+  assert.equal(l.morning.kind, 'first');                     // late deploy: first recorded rate stands in
+  const l2 = await getSnapshot({ fetchImpl: mockFetch({ xau: 4001 }), store: late, now: D('2026-11-24T17:10:00Z'), cfg });
+  assert.equal(l2.morning.kind, 'first');
+});
+
+test('forecast track record: estimate saved, then scored against actual morning rate', async () => {
+  const store = memoryStore(); const cfg = getConfig({});
+  // Mon evening: estimate for Tue is saved
+  await getSnapshot({ fetchImpl: mockFetch({ xau: 4000 }), store, now: D('2026-11-23T17:00:00Z'), cfg });
+  const saved = await store.get('forecast:2026-11-24');
+  assert.ok(saved && saved.g24.morning > 0);
+  // Tue 10:10 IST: actual morning captured at a higher price
+  const s = await getSnapshot({ fetchImpl: mockFetch({ xau: 4040 }), store, now: D('2026-11-24T04:40:00Z'), cfg });
+  assert.equal(s.accuracy.days, 1);
+  assert.ok(Math.abs(s.accuracy.goldMorningAbsPct) < 5);
+  assert.equal(s.accuracy.goldEveningAbsPct, null);   // evening not finished yet
 });
