@@ -35,7 +35,7 @@ test('MCX hours and trading days', () => {
 });
 
 test('pricing: 4000 USD/oz, 88 INR, 15% duty', () => {
-  const cfg = getConfig({});
+  const cfg = getConfig({ LOCAL_PREMIUM_PCT: '0', SILVER_PREMIUM_PCT: '0' });
   assert.equal(cfg.importDutyPct, 15);
   const g = inrPerGram(4000, 88, cfg);
   assert.ok(Math.abs(g - (4000 / 31.1034768) * 88 * 1.15) < 1e-6);
@@ -61,7 +61,7 @@ test('forecast: sane, bounded, needs enough data', () => {
 test('snapshot on a Sunday: market closed, rates computed, forecast targets Monday, carried tick recorded', async () => {
   const store = memoryStore();
   const now = D('2026-11-22T14:19:00Z'); // Sun 19:49 IST
-  const s = await getSnapshot({ fetchImpl: mockFetch(), store, now, cfg: getConfig({}) });
+  const s = await getSnapshot({ fetchImpl: mockFetch(), store, now, cfg: getConfig({ LOCAL_PREMIUM_PCT: '0', SILVER_PREMIUM_PCT: '0' }) });
   assert.equal(s.market.status, 'closed');
   assert.equal(s.forecast.targetDate, '2026-11-23');
   assert.equal(s.forecast.tomorrowIsTradingDay, true);
@@ -79,7 +79,7 @@ test('snapshot on a Sunday: market closed, rates computed, forecast targets Mond
 
 test('revisions: only logged when price moves past threshold while market is open', async () => {
   const store = memoryStore();
-  const cfg = getConfig({});
+  const cfg = getConfig({ LOCAL_PREMIUM_PCT: '0', SILVER_PREMIUM_PCT: '0' });
   const mon = (h) => D(`2026-11-23T${h}:00Z`); // Monday, global open
   await getSnapshot({ fetchImpl: mockFetch({ xau: 4000 }), store, now: mon('05:00'), cfg });
   await getSnapshot({ fetchImpl: mockFetch({ xau: 4001 }), store, now: mon('05:10'), cfg });  // +0.025% -> ignored
@@ -94,7 +94,7 @@ test('revisions: only logged when price moves past threshold while market is ope
 });
 
 test('Saturday: no revisions added after the carried tick', async () => {
-  const store = memoryStore(); const cfg = getConfig({});
+  const store = memoryStore(); const cfg = getConfig({ LOCAL_PREMIUM_PCT: '0', SILVER_PREMIUM_PCT: '0' });
   await getSnapshot({ fetchImpl: mockFetch({ xau: 4000 }), store, now: D('2026-11-21T05:00:00Z'), cfg });
   await getSnapshot({ fetchImpl: mockFetch({ xau: 4100 }), store, now: D('2026-11-21T09:00:00Z'), cfg });
   const t = await readToday({ store, now: D('2026-11-21T10:00:00Z') });
@@ -102,7 +102,7 @@ test('Saturday: no revisions added after the carried tick', async () => {
 });
 
 test('fallbacks: metals provider down -> Yahoo futures; everything down -> last saved rate', async () => {
-  const store = memoryStore(); const cfg = getConfig({});
+  const store = memoryStore(); const cfg = getConfig({ LOCAL_PREMIUM_PCT: '0', SILVER_PREMIUM_PCT: '0' });
   const s1 = await getSnapshot({ fetchImpl: mockFetch({ failMetals: true }), store, now: D('2026-11-23T05:00:00Z'), cfg });
   assert.ok(s1.spot.sources.includes('yahoo-futures'));
   const dead = async () => { throw new Error('network down'); };
@@ -114,15 +114,15 @@ test('fallbacks: metals provider down -> Yahoo futures; everything down -> last 
 
 test('separate silver premium', () => {
   const cfg = getConfig({ LOCAL_PREMIUM_PCT: '1.6', SILVER_PREMIUM_PCT: '10' });
-  const base = buildRates({ xau: 4000, xag: 50, usdInr: 88 }, getConfig({}));
+  const base = buildRates({ xau: 4000, xag: 50, usdInr: 88 }, getConfig({ LOCAL_PREMIUM_PCT: '0', SILVER_PREMIUM_PCT: '0' }));
   const r = buildRates({ xau: 4000, xag: 50, usdInr: 88 }, cfg);
   assert.ok(Math.abs(r.gold.perGram.k24 / base.gold.perGram.k24 - 1.016) < 1e-4);
   assert.ok(Math.abs(r.silver.perGram / base.silver.perGram - 1.10) < 1e-4);
-  assert.equal(getConfig({ LOCAL_PREMIUM_PCT: '2' }).silverPremiumPct, 2);
+  assert.equal(getConfig({ LOCAL_PREMIUM_PCT: '2' }).silverPremiumPct, 19);
 });
 
 test('morning rate: captured once at 10 AM IST window, kept all day', async () => {
-  const store = memoryStore(); const cfg = getConfig({});
+  const store = memoryStore(); const cfg = getConfig({ LOCAL_PREMIUM_PCT: '0', SILVER_PREMIUM_PCT: '0' });
   const a = await getSnapshot({ fetchImpl: mockFetch({ xau: 4000 }), store, now: D('2026-11-24T04:40:00Z'), cfg }); // 10:10 IST Tue
   assert.equal(a.morning.kind, 'today');
   const first = a.morning.g24;
@@ -134,7 +134,7 @@ test('morning rate: captured once at 10 AM IST window, kept all day', async () =
 });
 
 test('morning rate fallbacks: before 10 AM = previous day; late deploy = first rate; weekend = last weekday', async () => {
-  const cfg = getConfig({});
+  const cfg = getConfig({ LOCAL_PREMIUM_PCT: '0', SILVER_PREMIUM_PCT: '0' });
   const store = memoryStore();
   await getSnapshot({ fetchImpl: mockFetch({ xau: 4000 }), store, now: D('2026-11-23T04:40:00Z'), cfg });       // Mon 10:10 IST captured
   const pre = await getSnapshot({ fetchImpl: mockFetch({ xau: 4010 }), store, now: D('2026-11-24T02:30:00Z'), cfg }); // Tue 08:00 IST
@@ -149,7 +149,7 @@ test('morning rate fallbacks: before 10 AM = previous day; late deploy = first r
 });
 
 test('forecast track record: estimate saved, then scored against actual morning rate', async () => {
-  const store = memoryStore(); const cfg = getConfig({});
+  const store = memoryStore(); const cfg = getConfig({ LOCAL_PREMIUM_PCT: '0', SILVER_PREMIUM_PCT: '0' });
   // Mon evening: estimate for Tue is saved
   await getSnapshot({ fetchImpl: mockFetch({ xau: 4000 }), store, now: D('2026-11-23T17:00:00Z'), cfg });
   const saved = await store.get('forecast:2026-11-24');
@@ -164,7 +164,7 @@ test('forecast track record: estimate saved, then scored against actual morning 
 test('previous close is the last COMPLETED session (regression: Indian morning showed 2-day-old close)', async () => {
   assert.equal(currentSessionDateET(D('2026-11-25T04:41:00Z')), '2026-11-25'); // 11:41 PM ET Nov 24 -> next session
   assert.equal(currentSessionDateET(D('2026-11-24T15:00:00Z')), '2026-11-24'); // 10 AM ET Nov 24
-  const cfg = getConfig({});
+  const cfg = getConfig({ LOCAL_PREMIUM_PCT: '0', SILVER_PREMIUM_PCT: '0' });
   const morn = await getSnapshot({ fetchImpl: mockFetch({ until: '2026-11-25' }), store: memoryStore(), now: D('2026-11-25T04:41:00Z'), cfg }); // Wed 10:11 IST
   assert.equal(morn.reference.date, '2026-11-24');
   const day = await getSnapshot({ fetchImpl: mockFetch({ until: '2026-11-25' }), store: memoryStore(), now: D('2026-11-24T15:00:00Z'), cfg });  // Tue 8:30 PM IST
@@ -172,7 +172,7 @@ test('previous close is the last COMPLETED session (regression: Indian morning s
 });
 
 test('evening rate: fixed once at 5:30 PM IST window, not before, not overwritten', async () => {
-  const store = memoryStore(); const cfg = getConfig({});
+  const store = memoryStore(); const cfg = getConfig({ LOCAL_PREMIUM_PCT: '0', SILVER_PREMIUM_PCT: '0' });
   const early = await getSnapshot({ fetchImpl: mockFetch({ xau: 4000 }), store, now: D('2026-11-25T10:00:00Z'), cfg }); // 15:30 IST
   assert.equal(early.evening, null);
   const a = await getSnapshot({ fetchImpl: mockFetch({ xau: 4000 }), store, now: D('2026-11-25T12:10:00Z'), cfg });     // 17:40 IST
@@ -183,6 +183,20 @@ test('evening rate: fixed once at 5:30 PM IST window, not before, not overwritte
 });
 
 test('forecast evening target matches the shop evening time', async () => {
-  const s = await getSnapshot({ fetchImpl: mockFetch(), store: memoryStore(), now: D('2026-11-22T14:19:00Z'), cfg: getConfig({}) });
+  const s = await getSnapshot({ fetchImpl: mockFetch(), store: memoryStore(), now: D('2026-11-22T14:19:00Z'), cfg: getConfig({ LOCAL_PREMIUM_PCT: '0', SILVER_PREMIUM_PCT: '0' }) });
   assert.match(formatIST(new Date(s.forecast.eveningAt)), /05:30 pm/i);
+});
+
+test('calibration: saved shop rate overrides premiums and reproduces the shop price', async () => {
+  const { premiumFor, saveCalibration } = await import('../lib/calibration.mjs');
+  const store = memoryStore(), cfg = getConfig({ LOCAL_PREMIUM_PCT: '0', SILVER_PREMIUM_PCT: '0' });
+  const f = mockFetch({ xau: 3548.7, xag: 40.583, fx: 92.925 });
+  const base = await getSnapshot({ fetchImpl: f, store, cfg, now: new Date('2026-11-25T04:59:00Z'), record: false, useCalibration: false });
+  const goldPct = premiumFor(12458, base.spot.xau, base.spot.usdInr, cfg), silverPct = premiumFor(165, base.spot.xag, base.spot.usdInr, cfg);
+  await saveCalibration(store, { goldPct, silverPct, gold24: 12458, silver: 165 });
+  const s = await getSnapshot({ fetchImpl: f, store, cfg, now: new Date('2026-11-25T04:59:00Z'), record: false });
+  assert.ok(Math.abs(s.rates.gold.perGram.k24 - 12458) < 1);
+  assert.ok(Math.abs(s.rates.gold.perGram.k22 - 11419.8) < 1);
+  assert.ok(Math.abs(s.rates.silver.perGram - 165) < 0.5);
+  assert.ok(s.config.calibratedAt);
 });
