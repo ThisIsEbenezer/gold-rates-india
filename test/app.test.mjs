@@ -200,3 +200,10 @@ test('calibration: saved shop rate overrides premiums and reproduces the shop pr
   assert.ok(Math.abs(s.rates.silver.perGram - 165) < 0.5);
   assert.ok(s.config.calibratedAt);
 });
+
+test('snapshot exposes the saved shop rate', async () => {
+  const store = memoryStore();
+  await store.set('calibration', { goldPct: 2, silverPct: 18, gold24: 12458, silver: 165, at: '2026-11-25T12:00:00.000Z' });
+  const s = await getSnapshot({ fetchImpl: mockFetch(), store, now: D('2026-11-25T12:30:00Z'), cfg: getConfig({}) });
+  assert.deepEqual(s.shop, { g24: 12458, silver: 165, at: '2026-11-25T12:00:00.000Z' });
+});

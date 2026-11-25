@@ -6,6 +6,7 @@ import { readToday } from '../lib/tracker.mjs';
 import { getConfig } from '../lib/config.mjs';
 import { mockFetch } from './helpers.mjs';
 const store = memoryStore(); const cfg = getConfig({}); const f = mockFetch({ xau: 4000 });
+if (process.env.SHOP) await store.set('calibration', { goldPct: 2, silverPct: 18, gold24: 12458, silver: 165, at: new Date().toISOString() });
 const now0 = new Date(process.env.NOW || Date.now());
 // seed a few revisions on a "Monday"
 if (process.env.NOW) { for (const [h, x] of [['05:00', 4000], ['07:10', 4030], ['09:40', 4012], ['12:20', 4055]]) await getSnapshot({ fetchImpl: mockFetch({ xau: x }), store, now: new Date(`${process.env.NOW.slice(0, 10)}T${h}:00Z`), cfg }); }

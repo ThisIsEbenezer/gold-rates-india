@@ -88,7 +88,22 @@ function renderBoard() {
   setChip('c-g22', gc && { abs: gc.abs * 22 / 24, pct: gc.pct }, m.gold);
   setChip('c-g18', gc && { abs: gc.abs * 18 / 24, pct: gc.pct }, m.gold);
   setChip('c-s', sc, m.silver);
-  renderMorning(); renderForecast(); renderLog(); renderChart(true);
+  renderShop(); renderMorning(); renderForecast(); renderLog(); renderChart(true);
+}
+
+function renderShop() {
+  const sh = state.rates?.shop, box = $('shop');
+  if (!sh || !sh.g24) { box.hidden = true; return; }
+  box.hidden = false;
+  const fmt = (o) => new Intl.DateTimeFormat('en-IN', o);
+  const day = (iso) => fmt({ timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(iso));
+  const today = day(state.rates.asOf) === day(sh.at);
+  $('shSub').textContent = (today ? 'Set ' : 'Last set ') + fmt({ timeZone: TZ, day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', hour12: true }).format(new Date(sh.at)) + ' IST' + (today ? '' : ' · update it on the calibrate page');
+  // Shops round the per-gram rate first, then multiply by the weight.
+  const k = (w, n) => inr(Math.round(sh.g24 * n / 24) * w, 0);
+  $('shBody').innerHTML = [[1, '1 gram'], [8, '8 grams (1 sovereign)'], [10, '10 grams']].map(([w, l]) =>
+    `<tr><th scope="row" class="name">${l}</th><td class="num"><span class="v">${k(w, 24)}</span></td><td class="num"><span class="v">${k(w, 22)}</span></td><td class="num"><span class="v">${k(w, 18)}</span></td></tr>`).join('');
+  $('shSilver').textContent = sh.silver ? `Silver: ${inr(sh.silver, 0)} per gram · ${inr(sh.silver * 1000, 0)} per kg` : '';
 }
 
 function renderMorning() {
