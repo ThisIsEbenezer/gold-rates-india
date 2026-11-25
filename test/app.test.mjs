@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { isGlobalOpen, nextGlobalOpen, formatIST, nextTradingDay, mcxStatus, marketSnapshot } from '../lib/market.mjs';
+import { currentSessionDateET, isGlobalOpen, nextGlobalOpen, formatIST, nextTradingDay, mcxStatus, marketSnapshot } from '../lib/market.mjs';
 import { inrPerGram, buildRates, applyGst } from '../lib/pricing.mjs';
 import { forecast, normCdf } from '../lib/predict.mjs';
 import { getConfig } from '../lib/config.mjs';
@@ -159,4 +159,14 @@ test('forecast track record: estimate saved, then scored against actual morning 
   assert.equal(s.accuracy.days, 1);
   assert.ok(Math.abs(s.accuracy.goldMorningAbsPct) < 5);
   assert.equal(s.accuracy.goldEveningAbsPct, null);   // evening not finished yet
+});
+
+test('previous close is the last COMPLETED session (regression: Indian morning showed 2-day-old close)', async () => {
+  assert.equal(currentSessionDateET(D('2026-11-25T04:41:00Z')), '2026-11-25'); // 11:41 PM ET Nov 24 -> next session
+  assert.equal(currentSessionDateET(D('2026-11-24T15:00:00Z')), '2026-11-24'); // 10 AM ET Nov 24
+  const cfg = getConfig({});
+  const morn = await getSnapshot({ fetchImpl: mockFetch({ until: '2026-11-25' }), store: memoryStore(), now: D('2026-11-25T04:41:00Z'), cfg }); // Wed 10:11 IST
+  assert.equal(morn.reference.date, '2026-11-24');
+  const day = await getSnapshot({ fetchImpl: mockFetch({ until: '2026-11-25' }), store: memoryStore(), now: D('2026-11-24T15:00:00Z'), cfg });  // Tue 8:30 PM IST
+  assert.equal(day.reference.date, '2026-11-23');
 });
