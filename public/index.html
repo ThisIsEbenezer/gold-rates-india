@@ -47,9 +47,13 @@
   </section>
 
   <section class="panel morning" id="morning" aria-labelledby="mT" hidden>
-    <div class="panel-head"><h2 id="mT">Morning rate</h2><span id="mSub" class="unit"></span></div>
-    <div class="m-grid" id="mGrid"></div>
-    <p class="fc-range" id="mNote"></p>
+    <div class="panel-head"><h2 id="mT">Shop rates today</h2><span id="mSub" class="unit"></span></div>
+    <p class="fc-unit" id="mUnit"></p>
+    <div class="scroll"><table class="fc-table shoptab">
+      <thead><tr><th scope="col"><span class="sr">Metal</span></th><th scope="col" class="num" id="thMorn">Morning</th><th scope="col" class="num" id="thEve">Evening</th><th scope="col" class="num">Live now</th></tr></thead>
+      <tbody id="mBody"></tbody>
+    </table></div>
+    <p class="ftrack" id="mNote"></p>
   </section>
 
   <section class="panel" aria-labelledby="fcT">

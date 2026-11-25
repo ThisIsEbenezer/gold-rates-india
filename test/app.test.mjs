@@ -158,7 +158,7 @@ test('forecast track record: estimate saved, then scored against actual morning 
   const s = await getSnapshot({ fetchImpl: mockFetch({ xau: 4040 }), store, now: D('2026-11-24T04:40:00Z'), cfg });
   assert.equal(s.accuracy.days, 1);
   assert.ok(Math.abs(s.accuracy.goldMorningAbsPct) < 5);
-  assert.equal(s.accuracy.goldEveningAbsPct, null);   // evening not finished yet
+  assert.equal(s.accuracy.goldEveningAbsPct, null);   // evening rate not fixed yet
 });
 
 test('previous close is the last COMPLETED session (regression: Indian morning showed 2-day-old close)', async () => {
@@ -169,4 +169,20 @@ test('previous close is the last COMPLETED session (regression: Indian morning s
   assert.equal(morn.reference.date, '2026-11-24');
   const day = await getSnapshot({ fetchImpl: mockFetch({ until: '2026-11-25' }), store: memoryStore(), now: D('2026-11-24T15:00:00Z'), cfg });  // Tue 8:30 PM IST
   assert.equal(day.reference.date, '2026-11-23');
+});
+
+test('evening rate: fixed once at 5:30 PM IST window, not before, not overwritten', async () => {
+  const store = memoryStore(); const cfg = getConfig({});
+  const early = await getSnapshot({ fetchImpl: mockFetch({ xau: 4000 }), store, now: D('2026-11-25T10:00:00Z'), cfg }); // 15:30 IST
+  assert.equal(early.evening, null);
+  const a = await getSnapshot({ fetchImpl: mockFetch({ xau: 4000 }), store, now: D('2026-11-25T12:10:00Z'), cfg });     // 17:40 IST
+  assert.equal(a.evening.kind, 'today');
+  const b = await getSnapshot({ fetchImpl: mockFetch({ xau: 3900 }), store, now: D('2026-11-25T15:00:00Z'), cfg });     // 20:30 IST
+  assert.equal(b.evening.g24, a.evening.g24);
+  assert.equal(getConfig({ EVENING_RATE_TIME: '18:15' }).eveningMinutes, 18 * 60 + 15);
+});
+
+test('forecast evening target matches the shop evening time', async () => {
+  const s = await getSnapshot({ fetchImpl: mockFetch(), store: memoryStore(), now: D('2026-11-22T14:19:00Z'), cfg: getConfig({}) });
+  assert.match(formatIST(new Date(s.forecast.eveningAt)), /05:30 pm/i);
 });

@@ -174,3 +174,9 @@ fieldset{border:0;margin:0;padding:0;min-width:0}
 .scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
 .fc-unit{margin:0 0 4px;font-size:.78rem;color:var(--ink3)}
 @media (max-width:620px){.fc-table th,.fc-table td{padding-right:4px}.fc-table .r{font-size:.66rem}}
+
+.shoptab .v.live{color:var(--gold1)}
+.shoptab .pend{color:var(--ink3);font-weight:500;font-size:.8rem}
+.shoptab .dd{display:block;font-size:.72rem;font-weight:700;color:var(--ink3)}
+.shoptab .dd.up{color:var(--up)}.shoptab .dd.down{color:var(--down)}
+@media (max-width:620px){.shoptab th:nth-child(4),.shoptab td:nth-child(4){display:none}}
