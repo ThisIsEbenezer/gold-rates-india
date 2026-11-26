@@ -172,8 +172,8 @@ function renderLog() {
 let liveSig = '';
 function renderLive() {
   const r = state.rates, h = state.history; if (!r || !h) return;
-  const gold = state.lmetal === 'gold', m = mult(), mm = gold ? m.gold : m.silver;
-  const conv = (o) => (gold ? pxG(o.g24, 24, mm) : px(o.s, mm));
+  const gold = state.lmetal !== 'silver', karat = state.lmetal === 'gold22' ? 22 : 24, m = mult(), mm = gold ? m.gold : m.silver;
+  const conv = (o) => (gold ? pxG(o.g24, karat, mm) : px(o.s, mm));
   // Points: recorded trace + price changes, then the live price as the last point.
   const seen = new Map();
   for (const x of [...(h.today.trace || []), ...h.today.revisions]) seen.set(x.t, { t: new Date(x.t).getTime(), g24: x.g24, s: x.s });
@@ -206,7 +206,7 @@ function renderLive() {
     <circle class="ldot" cx="${x(pts.at(-1).t)}" cy="${y(last)}" r="5" fill="${col}"/><circle cx="${x(pts.at(-1).t)}" cy="${y(last)}" r="5" fill="${col}" stroke="#0A1A1F" stroke-width="2"/>
     <line id="lxh" y1="${T}" y2="${H - B}" stroke="rgba(255,255,255,.4)" stroke-dasharray="3 3" visibility="hidden"/><circle id="ldot" r="5" fill="#fff" stroke="#0A1A1F" stroke-width="2" visibility="hidden"/>
     <rect id="lhit" x="${L}" y="${T}" width="${W - L - R}" height="${H - T - B}" fill="transparent"/></svg>`;
-  box.setAttribute('aria-label', `${gold ? 'Gold 24K' : 'Silver'} today: open ${inr(open)}, now ${inr(last)}, high ${inr(hi)}, low ${inr(lo)}`);
+  box.setAttribute('aria-label', `${gold ? `Gold ${karat}K` : 'Silver'} today: open ${inr(open)}, now ${inr(last)}, high ${inr(hi)}, low ${inr(lo)}`);
   const svg = box.querySelector('svg'), tip = $('ltip');
   const move = (e) => {
     const bb = svg.getBoundingClientRect(), pxx = ((e.clientX - bb.left) / bb.width) * W;
