@@ -21,6 +21,9 @@ const gstMul = () => (state.gst && state.rates ? 1 + state.rates.config.gstPct /
 const decs = () => 0;
 // Shops quote a whole-rupee rate per gram and multiply it by the weight, so round per gram first.
 const px = (perGram, mm) => Math.round(Math.round(perGram) * gstMul()) * mm;
+// Chennai shops fix the 22K rate in steps of Rs 5, then derive 24K (x24/22) and 18K (x18/22) from it.
+const goldK = (g24raw, karat) => { const k22 = Math.round(g24raw * 22 / 24 / 5) * 5; return karat === 22 ? k22 : Math.round(k22 * karat / 22); };
+const pxG = (g24raw, karat, mm) => Math.round(goldK(g24raw, karat) * gstMul()) * mm;
 
 setInterval(() => { $('clock').textContent = clockFmt.format(new Date()); }, 1000);
 $('clock').textContent = clockFmt.format(new Date());
@@ -82,9 +85,9 @@ function renderBoard() {
   const gold = r.rates.gold.perGram, ref = r.reference;
   const gc = ref?.gold, sc = ref?.silver;
   $('u-g24').textContent = u.gold; $('u-g22').textContent = u.gold; $('u-g18').textContent = u.gold; $('u-s').textContent = u.silver;
-  setNumber('v-g24', px(gold.k24, m.gold), d, $('hero-price'));
-  setNumber('v-g22', px(gold.k22, m.gold), d, $('v-g22').parentElement);
-  setNumber('v-g18', px(gold.k18, m.gold), d, $('v-g18').parentElement);
+  setNumber('v-g24', pxG(gold.k24, 24, m.gold), d, $('hero-price'));
+  setNumber('v-g22', pxG(gold.k24, 22, m.gold), d, $('v-g22').parentElement);
+  setNumber('v-g18', pxG(gold.k24, 18, m.gold), d, $('v-g18').parentElement);
   setNumber('v-s', px(r.rates.silver.perGram, m.silver), d, $('v-s').parentElement);
   setChip('c-g24', gc, m.gold);
   setChip('c-g22', gc && { abs: gc.abs * 22 / 24, pct: gc.pct }, m.gold);
@@ -102,16 +105,16 @@ function renderMorning() {
     $('thMorn').textContent = mo ? (mo.kind === 'today' ? `Morning ${tm(mo.t)}` : mo.kind === 'first' ? `First rate ${tm(mo.t)}` : `Morning (${dDay(mo.date)})`) : 'Morning';
   $('thEve').textContent = ev ? `Evening ${tm(ev.t)}` : 'Evening';
   const rows = [
-    ['Gold 24K', 'g24', px(gold.k24, m.gold), m.gold], ['Gold 22K', 'g22', px(gold.k22, m.gold), m.gold],
-    ['Gold 18K', 'g18', px(gold.k18, m.gold), m.gold], ['Silver', 's', px(r.rates.silver.perGram, m.silver), m.silver],
+    ['Gold 24K', 'g24', pxG(gold.k24, 24, m.gold), m.gold, 24], ['Gold 22K', 'g22', pxG(gold.k24, 22, m.gold), m.gold, 22],
+    ['Gold 18K', 'g18', pxG(gold.k24, 18, m.gold), m.gold, 18], ['Silver', 's', px(r.rates.silver.perGram, m.silver), m.silver, 0],
   ];
-  const cell = (x, key, mm, live) => {
+  const cell = (x, key, mm, live, karat) => {
     if (!x) return '<td class="num"><span class="pend">not set yet</span></td>';
-    const v = px(x[key], mm), diff = live - v, cls = Math.abs(diff) < (d ? 0.01 : 0.5) ? '' : diff > 0 ? 'up' : 'down';
+    const v = karat ? pxG(x.g24, karat, mm) : px(x.s, mm), diff = live - v, cls = Math.abs(diff) < (d ? 0.01 : 0.5) ? '' : diff > 0 ? 'up' : 'down';
     return `<td class="num"><span class="v">${inr(v, d)}</span><span class="dd ${cls}">${cls ? (diff > 0 ? '▲ ' : '▼ ') + inr(Math.abs(diff), d) + ' now' : 'same as live'}</span></td>`;
   };
-  $('mBody').innerHTML = rows.map(([n, key, live, mm]) =>
-    `<tr><th scope="row" class="name">${n}</th>${cell(mo, key, mm, live)}${cell(ev, key, mm, live)}<td class="num"><span class="v live">${inr(live, d)}</span></td></tr>`).join('');
+  $('mBody').innerHTML = rows.map(([n, key, live, mm, karat]) =>
+    `<tr><th scope="row" class="name">${n}</th>${cell(mo, key, mm, live, karat)}${cell(ev, key, mm, live, karat)}<td class="num"><span class="v live">${inr(live, d)}</span></td></tr>`).join('');
   const parts = ['Chennai shops follow the association rate, published at 9:30 AM and 3:30 PM. The live market moves in between.'];
   if (r.config.calibratedAt) parts.push(`Live rates are matched to shop prices as of ${new Intl.DateTimeFormat('en-IN', { timeZone: TZ, day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', hour12: true }).format(new Date(r.config.calibratedAt))} IST.`);
   if (mo?.kind === 'first') parts.push('The morning update was missed today, so the first recorded rate is shown.');
@@ -125,14 +128,14 @@ function renderForecast() {
   $('fcDate').textContent = f.tomorrowIsTradingDay ? dDay(f.targetDate) : `${dDay(f.tomorrow)} · market closed`;
   if (!f.available) { $('fcBody').innerHTML = '<p class="muted">Estimate unavailable right now.</p>'; return; }
   const closedNote = f.tomorrowIsTradingDay ? '' : `<p class="ftrack">Indian markets are shut tomorrow, so rates hold. These estimates are for ${dDay(f.targetDate)}.</p>`;
-  const cell = (x, k, mm) => { const v = x[k]; return `<td class="num"><span class="v">${inr(px(v.expected, mm), d)}</span><span class="r">${num(px(v.low, mm), d)} – ${num(px(v.high, mm), d)}</span></td>`; };
-  const row = (name, x, ratio, mm) => `<tr><th scope="row" class="name">${name}</th>${cell(x, 'morning', mm * ratio)}${cell(x, 'evening', mm * ratio)}</tr>`;
+  const cell = (x, k, mm, karat) => { const v = x[k], f = (n) => (karat ? pxG(n, karat, mm) : px(n, mm)); return `<td class="num"><span class="v">${inr(f(v.expected), d)}</span><span class="r">${num(f(v.low), d)} – ${num(f(v.high), d)}</span></td>`; };
+  const row = (name, x, karat, mm) => `<tr><th scope="row" class="name">${name}</th>${cell(x, 'morning', mm, karat)}${cell(x, 'evening', mm, karat)}</tr>`;
   const lean = (name, x) => { const c = x.trend === 'up' ? 'up' : x.trend === 'down' ? 'down' : ''; const t = x.trend === 'up' ? '▲ leaning up' : x.trend === 'down' ? '▼ leaning down' : '■ no clear lean'; return `<span class="lean ${c}">${name} ${t} · ${Math.round(Math.max(x.probUp, 1 - x.probUp) * 100)}%</span>`; };
   const A = r.accuracy;
   const fmtP = (v) => (v == null ? null : v.toFixed(1) + '%');
   const track = A ? `<p class="ftrack">Track record (last ${A.days} day${A.days > 1 ? 's' : ''}): morning estimates were off by ${fmtP(A.goldMorningAbsPct)} on average for gold and ${fmtP(A.silverMorningAbsPct)} for silver${A.goldEveningAbsPct != null ? `; evening by ${fmtP(A.goldEveningAbsPct)} and ${fmtP(A.silverEveningAbsPct)}` : ''}.</p>` : '<p class="ftrack">Track record appears here after the first full day of estimates.</p>';
   $('fcBody').innerHTML = `<p class="fc-unit">Gold ${u.gold} · Silver ${u.silver}</p><div class="scroll"><table class="fc-table"><thead><tr><th scope="col"><span class="sr">Metal</span></th><th scope="col" class="num">Morning (${tm(f.morningAt)})</th><th scope="col" class="num">Evening (${tm(f.eveningAt)})</th></tr></thead><tbody>
-    ${row('Gold 24K', f.gold, 1, m.gold)}${row('Gold 22K', f.gold, 22 / 24, m.gold)}${row('Gold 18K', f.gold, 18 / 24, m.gold)}${row('Silver', f.silver, 1, m.silver)}</tbody></table></div>
+    ${row('Gold 24K', f.gold, 24, m.gold)}${row('Gold 22K', f.gold, 22, m.gold)}${row('Gold 18K', f.gold, 18, m.gold)}${row('Silver', f.silver, 0, m.silver)}</tbody></table></div>
     <div class="lean-line">${lean('Gold', f.gold)}${lean('Silver', f.silver)}</div>${closedNote}${track}
     <p class="ftrack muted">Likely range under each value. Gold and silver cannot be predicted exactly; estimates are not investment advice.</p>`;
 }
@@ -152,7 +155,7 @@ function renderLog() {
   const html = rows.map((x) => {
     const isNew = !firstLoad && !seenTicks.has(x.t) && seenTicks.size > 0;
     const tag = x.carried ? 'Carried from last close' : x.first ? 'First rate of the day' : '';
-    const g24 = px(x.g24, m.gold), s = px(x.s, m.silver), k22 = px(x.g24 * 22 / 24, m.gold), k18 = px(x.g24 * 18 / 24, m.gold);
+    const g24 = pxG(x.g24, 24, m.gold), s = px(x.s, m.silver), k22 = pxG(x.g24, 22, m.gold), k18 = pxG(x.g24, 18, m.gold);
     const dG = x.dG == null ? null : x.dG * m.gold, dS = x.dS == null ? null : x.dS * m.silver;
     return `<tr class="${isNew ? 'enter' : ''}"><td class="t">${tm(x.t)}${tag ? `<span class="tg">${tag}</span>` : ''}</td>${cellHtml(g24, dG)}${cellHtml(k22, dG == null ? null : dG * 22 / 24)}${cellHtml(k18, dG == null ? null : dG * 18 / 24)}${cellHtml(s, dS)}</tr>`;
   }).join('');
@@ -163,7 +166,7 @@ function renderLog() {
 function renderChart(animate = true) {
   const h = state.history; if (!h || !h.daily.length) return;
   const m = mult(), g = gstMul(), key = state.metal === 'gold' ? 'g24' : 's', mm = state.metal === 'gold' ? m.gold : m.silver;
-  const pts = h.daily.map((x) => ({ date: x.date, v: px(x[key], mm) }));
+  const pts = h.daily.map((x) => ({ date: x.date, v: state.metal === 'gold' ? pxG(x.g24, 24, mm) : px(x.s, mm) }));
   const box = $('chart'), W = Math.max(280, box.clientWidth || 640), H = W < 520 ? 210 : 290;
   const sig = `${state.metal}|${state.unit}|${state.gst}|${pts.length}|${pts.at(-1).v.toFixed(0)}|${W}`;
   if (sig === chartSig) return;
