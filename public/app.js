@@ -172,7 +172,9 @@ function renderLog() {
 let liveSig = '';
 function renderLive() {
   const r = state.rates, h = state.history; if (!r || !h) return;
-  const gold = state.lmetal !== 'silver', karat = state.lmetal === 'gold22' ? 22 : 24, m = mult(), mm = gold ? m.gold : m.silver;
+  const gold = state.lmetal !== 'silver', karat = state.lmetal === 'gold22' ? 22 : 24, m = mult();
+  const mm = state.lmetal === 'gram' ? 1 : gold ? m.gold : m.silver;  // "Gold 1 g" is always the 24K price for one gram
+  const what = state.lmetal === 'gram' ? 'Gold 24K · 1 g' : gold ? `Gold ${karat}K ${unitTxt().gold}` : `Silver ${unitTxt().silver}`;
   const conv = (o) => (gold ? pxG(o.g24, karat, mm) : px(o.s, mm));
   // Points: recorded trace + price changes, then the live price as the last point.
   const seen = new Map();
@@ -185,7 +187,7 @@ function renderLive() {
   const vs = pts.map((p) => p.v), open = pts[0].v, last = pts.at(-1).v, hi = Math.max(...vs), lo = Math.min(...vs);
   const d = decs(), diff = last - open, dir = diff > 0 ? 'up' : diff < 0 ? 'down' : '';
   $('lvStats').innerHTML = `<div><small>🌅 Open</small><b>${inr(open, d)}</b></div><div class="${dir}"><small>${diff > 0 ? '🚀' : diff < 0 ? '📉' : '😐'} Now</small><b>${inr(last, d)}</b></div><div class="up"><small>⬆️ High</small><b>${inr(hi, d)}</b></div><div class="down"><small>⬇️ Low</small><b>${inr(lo, d)}</b></div>`;
-  note.textContent = `📡 ${pts.length} points today · ${diff === 0 ? 'no change since open' : `${diff > 0 ? '▲' : '▼'} ${inr(Math.abs(diff), d)} since open`}`;
+  note.textContent = `📡 ${what} · ${pts.length} points today · ${diff === 0 ? 'no change since open' : `${diff > 0 ? '▲' : '▼'} ${inr(Math.abs(diff), d)} since open`}`;
   const W = Math.max(280, box.clientWidth || 640), H = W < 520 ? 200 : 260;
   const sig = `${state.lmetal}|${state.unit}|${state.gst}|${pts.length}|${last}|${W}`;
   if (sig === liveSig) return; liveSig = sig;
@@ -206,7 +208,7 @@ function renderLive() {
     <circle class="ldot" cx="${x(pts.at(-1).t)}" cy="${y(last)}" r="5" fill="${col}"/><circle cx="${x(pts.at(-1).t)}" cy="${y(last)}" r="5" fill="${col}" stroke="#0A1A1F" stroke-width="2"/>
     <line id="lxh" y1="${T}" y2="${H - B}" stroke="rgba(255,255,255,.4)" stroke-dasharray="3 3" visibility="hidden"/><circle id="ldot" r="5" fill="#fff" stroke="#0A1A1F" stroke-width="2" visibility="hidden"/>
     <rect id="lhit" x="${L}" y="${T}" width="${W - L - R}" height="${H - T - B}" fill="transparent"/></svg>`;
-  box.setAttribute('aria-label', `${gold ? `Gold ${karat}K` : 'Silver'} today: open ${inr(open)}, now ${inr(last)}, high ${inr(hi)}, low ${inr(lo)}`);
+  box.setAttribute('aria-label', `${what} today: open ${inr(open)}, now ${inr(last)}, high ${inr(hi)}, low ${inr(lo)}`);
   const svg = box.querySelector('svg'), tip = $('ltip');
   const move = (e) => {
     const bb = svg.getBoundingClientRect(), pxx = ((e.clientX - bb.left) / bb.width) * W;
