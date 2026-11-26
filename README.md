@@ -14,7 +14,7 @@ Static site + Netlify Functions. No build step, no API keys.
 
 ## How the rate is computed
 `USD/oz spot ÷ 31.1035 × USD/INR × (1 + import duty) [× (1 + premium)]`
-Import duty is **15%** (10% BCD + 5% AIDC, in force since 13 May 2026). When the Government changes it, set `IMPORT_DUTY_PCT` in Netlify (Site settings → Environment variables) – no redeploy of code needed. `LOCAL_PREMIUM_PCT` (default 2.2) lets you calibrate against your local jeweller/IBJA rate.
+Import duty is **15%** (10% BCD + 5% AIDC, in force since 13 May 2026). When the Government changes it, set `IMPORT_DUTY_PCT` in Netlify (Site settings → Environment variables) – no redeploy of code needed. `LOCAL_PREMIUM_PCT` (default 2.1; silver `SILVER_PREMIUM_PCT` default 17) lets you calibrate against your local jeweller/IBJA rate.
 
 ## Data sources (free, keyless, with fallbacks)
 | Data | Primary | Fallbacks |
@@ -51,7 +51,3 @@ Indian shops and rate sites fix a rate in the morning and revise it later in the
 | Evening rate | 15:30 IST | `EVENING_RATE_TIME` ("HH:MM") |
 
 Each is captured once, from the first update after the slot time, and only while the global market is open. The forecast table's Morning and Evening columns use the same times, and the track record scores each estimate against the captured rate.
-
-## Matching your shop's price (calibration)
-
-Shops add their own margin, and it changes a little each day. Open `/calibrate.html`, enter the shop's 24K and silver price per gram and your PIN. The site works out the premium that matches those prices at the current spot rate, saves it, and keeps following the market from there. Set `CALIBRATE_PIN` in Netlify first. A saved calibration overrides `LOCAL_PREMIUM_PCT` and `SILVER_PREMIUM_PCT`.
