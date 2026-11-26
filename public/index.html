@@ -57,6 +57,19 @@
     <div class="log" id="log" role="list"><p class="muted">Loading…</p></div>
   </section>
 
+  <section class="panel" aria-labelledby="lvT">
+    <div class="panel-head">
+      <h2 id="lvT">📡 Live today</h2>
+      <fieldset class="seg seg-sm"><legend class="sr">Live graph metal</legend>
+        <label><input type="radio" name="lmetal" value="gold" checked><span>Gold 24K</span></label>
+        <label><input type="radio" name="lmetal" value="silver"><span>Silver</span></label>
+      </fieldset>
+    </div>
+    <div class="lv-stats" id="lvStats"></div>
+    <figure class="chart"><div id="live" role="img" aria-label="Today's live price graph"></div><div id="ltip" class="tip" hidden></div></figure>
+    <p class="fnote" id="lvNote"></p>
+  </section>
+
   <section class="panel chart-panel" aria-labelledby="chT">
     <div class="panel-head">
       <h2 id="chT">📊 Last 30 days</h2>

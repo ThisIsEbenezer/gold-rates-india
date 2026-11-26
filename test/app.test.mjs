@@ -186,3 +186,12 @@ test('forecast evening target matches the shop evening time', async () => {
   const s = await getSnapshot({ fetchImpl: mockFetch(), store: memoryStore(), now: D('2026-11-22T14:19:00Z'), cfg: getConfig({ LOCAL_PREMIUM_PCT: '0', SILVER_PREMIUM_PCT: '0' }) });
   assert.match(formatIST(new Date(s.forecast.eveningAt)), /03:30 pm/i);
 });
+
+test('live graph trace: one point about every 5 minutes, not on every call', async () => {
+  const { ingest, readToday } = await import('../lib/tracker.mjs');
+  const store = memoryStore(), cfg = getConfig({});
+  const f = (now) => getSnapshot({ fetchImpl: mockFetch({ xau: 4000 }), store, now, cfg });
+  await f(D('2026-11-25T05:00:00Z')); await f(D('2026-11-25T05:01:00Z')); await f(D('2026-11-25T05:06:00Z'));
+  const t = await readToday({ store, now: D('2026-11-25T05:07:00Z') });
+  assert.equal(t.trace.length, 2);
+});

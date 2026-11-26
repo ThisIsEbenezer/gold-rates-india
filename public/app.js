@@ -1,6 +1,6 @@
 const TZ = 'Asia/Calcutta';
 const $ = (id) => document.getElementById(id);
-const state = { rates: null, history: null, unit: 'trade', gst: false, metal: 'gold' };
+const state = { rates: null, history: null, unit: 'trade', gst: false, metal: 'gold', lmetal: 'gold' };
 const shown = new Map();          // element id -> last displayed number
 const seenTicks = new Set();      // log rows already on screen
 let lastMode = '', firstLoad = true, chartSig = '';
@@ -112,7 +112,7 @@ function renderBoard() {
   setChip('c-g22', gc && { abs: gc.abs * 22 / 24, pct: gc.pct }, m.gold);
   setChip('c-g18', gc && { abs: gc.abs * 18 / 24, pct: gc.pct }, m.gold);
   setChip('c-s', sc, m.silver);
-  renderForecast(); renderLog(); renderChart(true);
+  renderForecast(); renderLog(); renderLive(); renderChart(true);
 }
 
 function renderForecast() {
@@ -166,6 +166,61 @@ function renderLog() {
   }).join('');
   h.today.revisions.forEach((x) => seenTicks.add(x.t));
   $('log').innerHTML = html;
+}
+
+/* ---------- live graph for today ---------- */
+let liveSig = '';
+function renderLive() {
+  const r = state.rates, h = state.history; if (!r || !h) return;
+  const gold = state.lmetal === 'gold', m = mult(), mm = gold ? m.gold : m.silver;
+  const conv = (o) => (gold ? pxG(o.g24, 24, mm) : px(o.s, mm));
+  // Points: recorded trace + price changes, then the live price as the last point.
+  const seen = new Map();
+  for (const x of [...(h.today.trace || []), ...h.today.revisions]) seen.set(x.t, { t: new Date(x.t).getTime(), g24: x.g24, s: x.s });
+  const now = new Date(r.asOf).getTime();
+  seen.set(r.asOf, { t: now, g24: r.rates.gold.perGram.k24, s: r.rates.silver.perGram });
+  const pts = [...seen.values()].sort((a, b) => a.t - b.t).map((x) => ({ t: x.t, v: conv(x) }));
+  const box = $('live'), note = $('lvNote');
+  if (pts.length < 2) { box.innerHTML = ''; $('lvStats').innerHTML = ''; note.textContent = '⏳ The graph fills in as today’s prices are recorded.'; return; }
+  const vs = pts.map((p) => p.v), open = pts[0].v, last = pts.at(-1).v, hi = Math.max(...vs), lo = Math.min(...vs);
+  const d = decs(), diff = last - open, dir = diff > 0 ? 'up' : diff < 0 ? 'down' : '';
+  $('lvStats').innerHTML = `<div><small>🌅 Open</small><b>${inr(open, d)}</b></div><div class="${dir}"><small>${diff > 0 ? '🚀' : diff < 0 ? '📉' : '😐'} Now</small><b>${inr(last, d)}</b></div><div class="up"><small>⬆️ High</small><b>${inr(hi, d)}</b></div><div class="down"><small>⬇️ Low</small><b>${inr(lo, d)}</b></div>`;
+  note.textContent = `📡 ${pts.length} points today · ${diff === 0 ? 'no change since open' : `${diff > 0 ? '▲' : '▼'} ${inr(Math.abs(diff), d)} since open`}`;
+  const W = Math.max(280, box.clientWidth || 640), H = W < 520 ? 200 : 260;
+  const sig = `${state.lmetal}|${state.unit}|${state.gst}|${pts.length}|${last}|${W}`;
+  if (sig === liveSig) return; liveSig = sig;
+  const L = W < 520 ? 46 : 58, R = 12, T = 12, B = 24;
+  const t0 = pts[0].t, t1 = Math.max(pts.at(-1).t, t0 + 60000);
+  let a = lo, b = hi; const pad = (b - a || b * 0.002) * 0.2; a -= pad; b += pad;
+  const x = (t) => L + ((t - t0) / (t1 - t0)) * (W - L - R), y = (v) => T + (1 - (v - a) / (b - a)) * (H - T - B);
+  const col = diff >= 0 ? '#2CF29B' : '#FF5C70';
+  const line = pts.map((p, i) => `${i ? 'L' : 'M'}${x(p.t).toFixed(1)},${y(p.v).toFixed(1)}`).join('');
+  const area = `${line}L${x(t1)},${H - B}L${x(t0)},${H - B}Z`;
+  const short = (n) => (n >= 1e5 ? (n / 1e5).toFixed(2) + 'L' : n >= 1000 ? (n / 1000).toFixed(n >= 1e4 ? 1 : 2) + 'k' : n.toFixed(0));
+  const grid = [0, 1, 2].map((k) => a + ((b - a) * k) / 2).map((v) => `<line x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}" stroke="rgba(255,255,255,.08)"/><text x="${L - 8}" y="${y(v) + 4}" text-anchor="end">${short(v)}</text>`).join('');
+  const nT = W < 520 ? 3 : 5;
+  const xl = Array.from({ length: nT }, (_, k) => t0 + ((t1 - t0) * k) / (nT - 1)).map((t, k) => `<text x="${x(t)}" y="${H - 6}" text-anchor="${k === 0 ? 'start' : k === nT - 1 ? 'end' : 'middle'}">${new Intl.DateTimeFormat('en-IN', { timeZone: TZ, hour: 'numeric', minute: '2-digit', hour12: true }).format(new Date(t))}</text>`).join('');
+  box.innerHTML = `<svg viewBox="0 0 ${W} ${H}"><defs><linearGradient id="lvg" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="${col}" stop-opacity=".35"/><stop offset="1" stop-color="${col}" stop-opacity="0"/></linearGradient></defs>${grid}${xl}
+    <line x1="${L}" x2="${W - R}" y1="${y(open)}" y2="${y(open)}" stroke="rgba(255,255,255,.3)" stroke-dasharray="4 4"/>
+    <path d="${area}" fill="url(#lvg)"/><path d="${line}" fill="none" stroke="${col}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle class="ldot" cx="${x(pts.at(-1).t)}" cy="${y(last)}" r="5" fill="${col}"/><circle cx="${x(pts.at(-1).t)}" cy="${y(last)}" r="5" fill="${col}" stroke="#0A1A1F" stroke-width="2"/>
+    <line id="lxh" y1="${T}" y2="${H - B}" stroke="rgba(255,255,255,.4)" stroke-dasharray="3 3" visibility="hidden"/><circle id="ldot" r="5" fill="#fff" stroke="#0A1A1F" stroke-width="2" visibility="hidden"/>
+    <rect id="lhit" x="${L}" y="${T}" width="${W - L - R}" height="${H - T - B}" fill="transparent"/></svg>`;
+  box.setAttribute('aria-label', `${gold ? 'Gold 24K' : 'Silver'} today: open ${inr(open)}, now ${inr(last)}, high ${inr(hi)}, low ${inr(lo)}`);
+  const svg = box.querySelector('svg'), tip = $('ltip');
+  const move = (e) => {
+    const bb = svg.getBoundingClientRect(), pxx = ((e.clientX - bb.left) / bb.width) * W;
+    let best = 0; for (let i = 1; i < pts.length; i++) if (Math.abs(x(pts[i].t) - pxx) < Math.abs(x(pts[best].t) - pxx)) best = i;
+    const p = pts[best], sx = x(p.t), sy = y(p.v);
+    const xh = svg.querySelector('#lxh'), dot = svg.querySelector('#ldot');
+    xh.setAttribute('x1', sx); xh.setAttribute('x2', sx); xh.setAttribute('visibility', 'visible');
+    dot.setAttribute('cx', sx); dot.setAttribute('cy', sy); dot.setAttribute('visibility', 'visible');
+    tip.hidden = false; tip.textContent = `${tm(new Date(p.t).toISOString())} · ${inr(p.v, d)}`;
+    tip.style.left = `${(sx / W) * bb.width}px`; tip.style.top = `${(sy / H) * bb.height}px`;
+  };
+  const hide = () => { tip.hidden = true; svg.querySelector('#lxh').setAttribute('visibility', 'hidden'); svg.querySelector('#ldot').setAttribute('visibility', 'hidden'); };
+  const hit = svg.querySelector('#lhit');
+  hit.addEventListener('pointermove', move); hit.addEventListener('pointerdown', move); hit.addEventListener('pointerleave', hide);
 }
 
 function renderChart(animate = true) {
@@ -226,10 +281,11 @@ async function load() {
   }
 }
 
-document.querySelectorAll('input[name=unit]').forEach((el) => el.addEventListener('change', () => { state.unit = el.value; chartSig = ''; renderBoard(); }));
+document.querySelectorAll('input[name=unit]').forEach((el) => el.addEventListener('change', () => { state.unit = el.value; chartSig = ''; liveSig = ''; renderBoard(); }));
+document.querySelectorAll('input[name=lmetal]').forEach((el) => el.addEventListener('change', () => { state.lmetal = el.value; liveSig = ''; renderLive(); }));
 document.querySelectorAll('input[name=metal]').forEach((el) => el.addEventListener('change', () => { state.metal = el.value; chartSig = ''; renderChart(true); }));
-$('gst').addEventListener('change', (e) => { state.gst = e.target.checked; chartSig = ''; renderBoard(); });
-let rt; addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(() => renderChart(false), 150); });
+$('gst').addEventListener('change', (e) => { state.gst = e.target.checked; chartSig = ''; liveSig = ''; renderBoard(); });
+let rt; addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(() => { liveSig = ''; renderLive(); renderChart(false); }, 150); });
 
 const yr = $('yr'); if (yr) yr.textContent = new Date().getFullYear();
 const pollSec = Math.max(3, Number(new URLSearchParams(location.search).get('poll')) || 30);
