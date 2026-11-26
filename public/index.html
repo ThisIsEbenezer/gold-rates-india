@@ -5,20 +5,21 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Sam’s Gold Prediction · Gold &amp; Silver Rate Today in India (IST)</title>
 <meta name="description" content="Live gold and silver rates in India in rupees, today's price changes and tomorrow's estimate. All times in IST.">
-<meta name="theme-color" content="#101530">
+<meta name="theme-color" content="#0A1A1F">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Figtree:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Figtree:wght@400;500;600;700;800&display=swap">
 <link rel="stylesheet" href="/styles.css">
 </head>
-<body>
-<div class="glow" aria-hidden="true"></div>
+<body class="intro">
+<div class="aurora" aria-hidden="true"><i></i><i></i><i></i></div>
+<div class="sparks" aria-hidden="true"><span>✨</span><span>🪙</span><span>✨</span><span>💛</span><span>🪙</span><span>✨</span><span>⭐</span><span>🪙</span></div>
 
 <header class="bar">
   <div class="wrap bar-in">
-    <div class="brand"><svg width="26" height="26" viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="16" fill="#101530"/><path d="M14 42h36l-6-14H20z" fill="#C8961E"/><path d="M22 28h20l-4-8H26z" fill="#F1CF7A"/></svg><span>Sam’s Gold Prediction</span></div>
-    <div class="clock"><span id="clock">--:--:--</span><span class="tz">IST</span></div>
+    <div class="brand"><span class="coin" aria-hidden="true">🪙</span><span>Sam’s Gold Prediction</span></div>
+    <div class="clock">🕒 <span id="clock">--:--:--</span><span class="tz">IST</span></div>
   </div>
 </header>
 
@@ -27,7 +28,7 @@
 
   <section class="hero" aria-labelledby="heroLabel">
     <div class="status"><span id="statusPill" class="pill">Loading</span><span id="statusText" class="muted"></span></div>
-    <h1 id="heroLabel" class="hero-label">Gold 24K · now <span id="u-g24" class="unit">per 10 g</span></h1>
+    <h1 id="heroLabel" class="hero-label">🥇 Gold 24K <span id="u-g24" class="unit">per 10 g</span></h1>
     <div class="hero-price" id="hero-price"><span class="rs">₹</span><span id="v-g24" class="metal">––,–––</span></div>
     <div class="chip" id="c-g24" aria-live="polite"></div>
 
@@ -41,39 +42,24 @@
   </section>
 
   <section class="cards" aria-label="Other rates">
-    <article class="card"><h2>Gold 22K <span id="u-g22" class="unit"></span></h2><div class="val"><span class="rs">₹</span><span id="v-g22">–</span></div><div class="chip" id="c-g22"></div></article>
-    <article class="card"><h2>Gold 18K <span id="u-g18" class="unit"></span></h2><div class="val"><span class="rs">₹</span><span id="v-g18">–</span></div><div class="chip" id="c-g18"></div></article>
-    <article class="card silver"><h2>Silver <span id="u-s" class="unit"></span></h2><div class="val"><span class="rs">₹</span><span id="v-s">–</span></div><div class="chip" id="c-s"></div></article>
-  </section>
-
-  <section class="panel morning" id="morning" aria-labelledby="mT" hidden>
-    <div class="panel-head"><h2 id="mT">Shop rates today</h2><span id="mSub" class="unit"></span></div>
-    <p class="fc-unit" id="mUnit"></p>
-    <div class="scroll"><table class="fc-table shoptab">
-      <thead><tr><th scope="col"><span class="sr">Metal</span></th><th scope="col" class="num" id="thMorn">Morning</th><th scope="col" class="num" id="thEve">Evening</th><th scope="col" class="num">Now</th></tr></thead>
-      <tbody id="mBody"></tbody>
-    </table></div>
-    <p class="ftrack" id="mNote"></p>
+    <article class="card"><h2>🥇 Gold 22K <span id="u-g22" class="unit"></span></h2><div class="val"><span class="rs">₹</span><span id="v-g22">–</span></div><div class="chip" id="c-g22"></div></article>
+    <article class="card"><h2>🥇 Gold 18K <span id="u-g18" class="unit"></span></h2><div class="val"><span class="rs">₹</span><span id="v-g18">–</span></div><div class="chip" id="c-g18"></div></article>
+    <article class="card silver"><h2>🥈 Silver <span id="u-s" class="unit"></span></h2><div class="val"><span class="rs">₹</span><span id="v-s">–</span></div><div class="chip" id="c-s"></div></article>
   </section>
 
   <section class="panel" aria-labelledby="fcT">
-    <div class="panel-head"><h2 id="fcT">Tomorrow’s estimate</h2><span id="fcDate" class="unit"></span></div>
+    <div class="panel-head"><h2 id="fcT">🔮 Tomorrow’s estimate</h2><span id="fcDate" class="unit"></span></div>
     <div id="fcBody"><p class="muted">Calculating…</p></div>
   </section>
 
   <section class="panel" aria-labelledby="logT">
-    <div class="panel-head"><h2 id="logT">Today’s price changes</h2><span id="logMeta" class="unit"></span></div>
-    <div class="scroll log-scroll" tabindex="0" role="region" aria-label="Today's price changes, scrollable">
-      <table class="logt">
-        <thead><tr><th scope="col">Time</th><th scope="col" class="num">Gold 24K</th><th scope="col" class="num">Gold 22K</th><th scope="col" class="num">Gold 18K</th><th scope="col" class="num">Silver</th></tr></thead>
-        <tbody id="log"><tr><td colspan="5" class="muted">Loading…</td></tr></tbody>
-      </table>
-    </div>
+    <div class="panel-head"><h2 id="logT">⏱️ Today’s price changes</h2><span id="logMeta" class="unit"></span></div>
+    <div class="log" id="log" role="list"><p class="muted">Loading…</p></div>
   </section>
 
   <section class="panel chart-panel" aria-labelledby="chT">
     <div class="panel-head">
-      <h2 id="chT">Last 30 days</h2>
+      <h2 id="chT">📊 Last 30 days</h2>
       <fieldset class="seg seg-sm"><legend class="sr">Chart metal</legend>
         <label><input type="radio" name="metal" value="gold" checked><span>Gold</span></label>
         <label><input type="radio" name="metal" value="silver"><span>Silver</span></label>
