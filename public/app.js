@@ -18,7 +18,9 @@ const dDay = (s) => new Intl.DateTimeFormat('en-IN', { timeZone: 'UTC', weekday:
 const mult = () => ({ gold: state.unit === 'trade' ? 10 : 1, silver: state.unit === 'trade' ? 1000 : 1 });
 const unitTxt = () => ({ gold: state.unit === 'trade' ? 'per 10 g' : 'per 1 g', silver: state.unit === 'trade' ? 'per 1 kg' : 'per 1 g' });
 const gstMul = () => (state.gst && state.rates ? 1 + state.rates.config.gstPct / 100 : 1);
-const decs = () => (state.unit === 'trade' ? 0 : 2);
+const decs = () => 0;
+// Shops quote a whole-rupee rate per gram and multiply it by the weight, so round per gram first.
+const px = (perGram, mm) => Math.round(Math.round(perGram) * gstMul()) * mm;
 
 setInterval(() => { $('clock').textContent = clockFmt.format(new Date()); }, 1000);
 $('clock').textContent = clockFmt.format(new Date());
@@ -80,30 +82,15 @@ function renderBoard() {
   const gold = r.rates.gold.perGram, ref = r.reference;
   const gc = ref?.gold, sc = ref?.silver;
   $('u-g24').textContent = u.gold; $('u-g22').textContent = u.gold; $('u-g18').textContent = u.gold; $('u-s').textContent = u.silver;
-  setNumber('v-g24', gold.k24 * m.gold * g, d, $('hero-price'));
-  setNumber('v-g22', gold.k22 * m.gold * g, d, $('v-g22').parentElement);
-  setNumber('v-g18', gold.k18 * m.gold * g, d, $('v-g18').parentElement);
-  setNumber('v-s', r.rates.silver.perGram * m.silver * g, d, $('v-s').parentElement);
+  setNumber('v-g24', px(gold.k24, m.gold), d, $('hero-price'));
+  setNumber('v-g22', px(gold.k22, m.gold), d, $('v-g22').parentElement);
+  setNumber('v-g18', px(gold.k18, m.gold), d, $('v-g18').parentElement);
+  setNumber('v-s', px(r.rates.silver.perGram, m.silver), d, $('v-s').parentElement);
   setChip('c-g24', gc, m.gold);
   setChip('c-g22', gc && { abs: gc.abs * 22 / 24, pct: gc.pct }, m.gold);
   setChip('c-g18', gc && { abs: gc.abs * 18 / 24, pct: gc.pct }, m.gold);
   setChip('c-s', sc, m.silver);
-  renderShop(); renderMorning(); renderForecast(); renderLog(); renderChart(true);
-}
-
-function renderShop() {
-  const sh = state.rates?.shop, box = $('shop');
-  if (!sh || !sh.g24) { box.hidden = true; return; }
-  box.hidden = false;
-  const fmt = (o) => new Intl.DateTimeFormat('en-IN', o);
-  const day = (iso) => fmt({ timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(iso));
-  const today = day(state.rates.asOf) === day(sh.at);
-  $('shSub').textContent = (today ? 'Set ' : 'Last set ') + fmt({ timeZone: TZ, day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', hour12: true }).format(new Date(sh.at)) + ' IST' + (today ? '' : ' · update it on the calibrate page');
-  // Shops round the per-gram rate first, then multiply by the weight.
-  const k = (w, n) => inr(Math.round(sh.g24 * n / 24) * w, 0);
-  $('shBody').innerHTML = [[1, '1 gram'], [8, '8 grams (1 sovereign)'], [10, '10 grams']].map(([w, l]) =>
-    `<tr><th scope="row" class="name">${l}</th><td class="num"><span class="v">${k(w, 24)}</span></td><td class="num"><span class="v">${k(w, 22)}</span></td><td class="num"><span class="v">${k(w, 18)}</span></td></tr>`).join('');
-  $('shSilver').textContent = sh.silver ? `Silver: ${inr(sh.silver, 0)} per gram · ${inr(sh.silver * 1000, 0)} per kg` : '';
+  renderMorning(); renderForecast(); renderLog(); renderChart(true);
 }
 
 function renderMorning() {
@@ -115,12 +102,12 @@ function renderMorning() {
     $('thMorn').textContent = mo ? (mo.kind === 'today' ? `Morning ${tm(mo.t)}` : mo.kind === 'first' ? `First rate ${tm(mo.t)}` : `Morning (${dDay(mo.date)})`) : 'Morning';
   $('thEve').textContent = ev ? `Evening ${tm(ev.t)}` : 'Evening';
   const rows = [
-    ['Gold 24K', 'g24', gold.k24 * m.gold * g, m.gold], ['Gold 22K', 'g22', gold.k22 * m.gold * g, m.gold],
-    ['Gold 18K', 'g18', gold.k18 * m.gold * g, m.gold], ['Silver', 's', r.rates.silver.perGram * m.silver * g, m.silver],
+    ['Gold 24K', 'g24', px(gold.k24, m.gold), m.gold], ['Gold 22K', 'g22', px(gold.k22, m.gold), m.gold],
+    ['Gold 18K', 'g18', px(gold.k18, m.gold), m.gold], ['Silver', 's', px(r.rates.silver.perGram, m.silver), m.silver],
   ];
   const cell = (x, key, mm, live) => {
     if (!x) return '<td class="num"><span class="pend">not set yet</span></td>';
-    const v = x[key] * mm * g, diff = live - v, cls = Math.abs(diff) < (d ? 0.01 : 0.5) ? '' : diff > 0 ? 'up' : 'down';
+    const v = px(x[key], mm), diff = live - v, cls = Math.abs(diff) < (d ? 0.01 : 0.5) ? '' : diff > 0 ? 'up' : 'down';
     return `<td class="num"><span class="v">${inr(v, d)}</span><span class="dd ${cls}">${cls ? (diff > 0 ? '▲ ' : '▼ ') + inr(Math.abs(diff), d) + ' now' : 'same as live'}</span></td>`;
   };
   $('mBody').innerHTML = rows.map(([n, key, live, mm]) =>
@@ -138,7 +125,7 @@ function renderForecast() {
   $('fcDate').textContent = f.tomorrowIsTradingDay ? dDay(f.targetDate) : `${dDay(f.tomorrow)} · market closed`;
   if (!f.available) { $('fcBody').innerHTML = '<p class="muted">Estimate unavailable right now.</p>'; return; }
   const closedNote = f.tomorrowIsTradingDay ? '' : `<p class="ftrack">Indian markets are shut tomorrow, so rates hold. These estimates are for ${dDay(f.targetDate)}.</p>`;
-  const cell = (x, k, mm) => { const v = x[k]; return `<td class="num"><span class="v">${inr(v.expected * mm * g, d)}</span><span class="r">${num(v.low * mm * g, d)} – ${num(v.high * mm * g, d)}</span></td>`; };
+  const cell = (x, k, mm) => { const v = x[k]; return `<td class="num"><span class="v">${inr(px(v.expected, mm), d)}</span><span class="r">${num(px(v.low, mm), d)} – ${num(px(v.high, mm), d)}</span></td>`; };
   const row = (name, x, ratio, mm) => `<tr><th scope="row" class="name">${name}</th>${cell(x, 'morning', mm * ratio)}${cell(x, 'evening', mm * ratio)}</tr>`;
   const lean = (name, x) => { const c = x.trend === 'up' ? 'up' : x.trend === 'down' ? 'down' : ''; const t = x.trend === 'up' ? '▲ leaning up' : x.trend === 'down' ? '▼ leaning down' : '■ no clear lean'; return `<span class="lean ${c}">${name} ${t} · ${Math.round(Math.max(x.probUp, 1 - x.probUp) * 100)}%</span>`; };
   const A = r.accuracy;
@@ -160,14 +147,14 @@ function renderLog() {
     const dv = delta == null ? null : delta * g;
     const cls = dv == null ? 'flat' : dv > 0 ? 'up' : dv < 0 ? 'down' : 'flat';
     const txt = dv == null ? '' : `${dv > 0 ? '▲' : dv < 0 ? '▼' : ''} ${inr(Math.abs(dv), d)}`;
-    return `<td class="num"><span class="p">${inr(price * g, d)}</span><span class="dl ${cls}">${txt}</span></td>`;
+    return `<td class="num"><span class="p">${inr(price, d)}</span><span class="dl ${cls}">${txt}</span></td>`;
   };
   const html = rows.map((x) => {
     const isNew = !firstLoad && !seenTicks.has(x.t) && seenTicks.size > 0;
     const tag = x.carried ? 'Carried from last close' : x.first ? 'First rate of the day' : '';
-    const g24 = x.g24 * m.gold, s = x.s * m.silver;
+    const g24 = px(x.g24, m.gold), s = px(x.s, m.silver), k22 = px(x.g24 * 22 / 24, m.gold), k18 = px(x.g24 * 18 / 24, m.gold);
     const dG = x.dG == null ? null : x.dG * m.gold, dS = x.dS == null ? null : x.dS * m.silver;
-    return `<tr class="${isNew ? 'enter' : ''}"><td class="t">${tm(x.t)}${tag ? `<span class="tg">${tag}</span>` : ''}</td>${cellHtml(g24, dG)}${cellHtml(g24 * 22 / 24, dG == null ? null : dG * 22 / 24)}${cellHtml(g24 * 18 / 24, dG == null ? null : dG * 18 / 24)}${cellHtml(s, dS)}</tr>`;
+    return `<tr class="${isNew ? 'enter' : ''}"><td class="t">${tm(x.t)}${tag ? `<span class="tg">${tag}</span>` : ''}</td>${cellHtml(g24, dG)}${cellHtml(k22, dG == null ? null : dG * 22 / 24)}${cellHtml(k18, dG == null ? null : dG * 18 / 24)}${cellHtml(s, dS)}</tr>`;
   }).join('');
   h.today.revisions.forEach((x) => seenTicks.add(x.t));
   $('log').innerHTML = html;
@@ -176,7 +163,7 @@ function renderLog() {
 function renderChart(animate = true) {
   const h = state.history; if (!h || !h.daily.length) return;
   const m = mult(), g = gstMul(), key = state.metal === 'gold' ? 'g24' : 's', mm = state.metal === 'gold' ? m.gold : m.silver;
-  const pts = h.daily.map((x) => ({ date: x.date, v: x[key] * mm * g }));
+  const pts = h.daily.map((x) => ({ date: x.date, v: px(x[key], mm) }));
   const box = $('chart'), W = Math.max(280, box.clientWidth || 640), H = W < 520 ? 210 : 290;
   const sig = `${state.metal}|${state.unit}|${state.gst}|${pts.length}|${pts.at(-1).v.toFixed(0)}|${W}`;
   if (sig === chartSig) return;
