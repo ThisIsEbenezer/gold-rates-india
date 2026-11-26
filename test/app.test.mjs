@@ -118,7 +118,7 @@ test('separate silver premium', () => {
   const r = buildRates({ xau: 4000, xag: 50, usdInr: 88 }, cfg);
   assert.ok(Math.abs(r.gold.perGram.k24 / base.gold.perGram.k24 - 1.016) < 1e-4);
   assert.ok(Math.abs(r.silver.perGram / base.silver.perGram - 1.10) < 1e-4);
-  assert.equal(getConfig({ LOCAL_PREMIUM_PCT: '2' }).silverPremiumPct, 19);
+  assert.equal(getConfig({ LOCAL_PREMIUM_PCT: '2' }).silverPremiumPct, 18.3);
 });
 
 test('morning rate: captured once at 10 AM IST window, kept all day', async () => {
@@ -171,11 +171,11 @@ test('previous close is the last COMPLETED session (regression: Indian morning s
   assert.equal(day.reference.date, '2026-11-23');
 });
 
-test('evening rate: fixed once at 5:30 PM IST window, not before, not overwritten', async () => {
+test('evening rate: fixed once at 3:30 PM IST window, not before, not overwritten', async () => {
   const store = memoryStore(); const cfg = getConfig({ LOCAL_PREMIUM_PCT: '0', SILVER_PREMIUM_PCT: '0' });
-  const early = await getSnapshot({ fetchImpl: mockFetch({ xau: 4000 }), store, now: D('2026-11-25T10:00:00Z'), cfg }); // 15:30 IST
+  const early = await getSnapshot({ fetchImpl: mockFetch({ xau: 4000 }), store, now: D('2026-11-25T09:30:00Z'), cfg }); // 15:00 IST
   assert.equal(early.evening, null);
-  const a = await getSnapshot({ fetchImpl: mockFetch({ xau: 4000 }), store, now: D('2026-11-25T12:10:00Z'), cfg });     // 17:40 IST
+  const a = await getSnapshot({ fetchImpl: mockFetch({ xau: 4000 }), store, now: D('2026-11-25T10:10:00Z'), cfg });     // 15:40 IST
   assert.equal(a.evening.kind, 'today');
   const b = await getSnapshot({ fetchImpl: mockFetch({ xau: 3900 }), store, now: D('2026-11-25T15:00:00Z'), cfg });     // 20:30 IST
   assert.equal(b.evening.g24, a.evening.g24);
@@ -184,7 +184,7 @@ test('evening rate: fixed once at 5:30 PM IST window, not before, not overwritte
 
 test('forecast evening target matches the shop evening time', async () => {
   const s = await getSnapshot({ fetchImpl: mockFetch(), store: memoryStore(), now: D('2026-11-22T14:19:00Z'), cfg: getConfig({ LOCAL_PREMIUM_PCT: '0', SILVER_PREMIUM_PCT: '0' }) });
-  assert.match(formatIST(new Date(s.forecast.eveningAt)), /05:30 pm/i);
+  assert.match(formatIST(new Date(s.forecast.eveningAt)), /03:30 pm/i);
 });
 
 test('calibration: saved shop rate overrides premiums and reproduces the shop price', async () => {
