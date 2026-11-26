@@ -9,12 +9,12 @@ Static site + Netlify Functions. No build step, no API keys.
 - Everything in Indian Standard Time.
 
 ## Morning rate, estimates and track record
-- **Morning rate:** captured once each weekday at the first update on/after 10:00 AM IST (change with `MORNING_RATE_TIME`, e.g. `10:30`) and held all day, like Indian rate sites do. Shown next to the live rate.
+- **Morning rate:** captured once each weekday at the first update on/after 9:30 AM IST (change with `MORNING_RATE_TIME`, e.g. `10:30`) and held all day, like Indian rate sites do. Shown next to the live rate.
 - **Tomorrow’s estimate:** projects the live price to tomorrow’s morning and end of day using recent volatility. It also stores each estimate and later compares it with the real morning rate, shown as a track record.
 
 ## How the rate is computed
 `USD/oz spot ÷ 31.1035 × USD/INR × (1 + import duty) [× (1 + premium)]`
-Import duty is **15%** (10% BCD + 5% AIDC, in force since 13 May 2026). When the Government changes it, set `IMPORT_DUTY_PCT` in Netlify (Site settings → Environment variables) – no redeploy of code needed. `LOCAL_PREMIUM_PCT` (default 0) lets you calibrate against your local jeweller/IBJA rate.
+Import duty is **15%** (10% BCD + 5% AIDC, in force since 13 May 2026). When the Government changes it, set `IMPORT_DUTY_PCT` in Netlify (Site settings → Environment variables) – no redeploy of code needed. `LOCAL_PREMIUM_PCT` (default 2.2) lets you calibrate against your local jeweller/IBJA rate.
 
 ## Data sources (free, keyless, with fallbacks)
 | Data | Primary | Fallbacks |
@@ -43,12 +43,12 @@ Local: `npm install && npx netlify dev`. Tests (mocked network): `npm test`. Moc
 
 ## Shop rate times (Morning and Evening)
 
-Indian shops and rate sites fix a rate in the morning and revise it later in the day (IBJA publishes a second rate around 5-6:30 PM IST). The site captures two fixed shop rates each weekday and shows them next to the live rate:
+Indian shops and rate sites fix a rate in the morning and revise it later in the day (Chennai's MJDTA publishes at 9:30 AM and 3:30 PM IST; IBJA publishes about noon and 5 PM). The site captures two fixed shop rates each weekday and shows them next to the live rate:
 
 | Setting | Default | Env var |
 |---|---|---|
-| Morning rate | 10:00 IST | `MORNING_RATE_TIME` ("HH:MM") |
-| Evening rate | 17:30 IST | `EVENING_RATE_TIME` ("HH:MM") |
+| Morning rate | 9:30 IST | `MORNING_RATE_TIME` ("HH:MM") |
+| Evening rate | 15:30 IST | `EVENING_RATE_TIME` ("HH:MM") |
 
 Each is captured once, from the first update after the slot time, and only while the global market is open. The forecast table's Morning and Evening columns use the same times, and the track record scores each estimate against the captured rate.
 

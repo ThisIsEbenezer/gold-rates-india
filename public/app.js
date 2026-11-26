@@ -112,7 +112,7 @@ function renderMorning() {
   };
   $('mBody').innerHTML = rows.map(([n, key, live, mm]) =>
     `<tr><th scope="row" class="name">${n}</th>${cell(mo, key, mm, live)}${cell(ev, key, mm, live)}<td class="num"><span class="v live">${inr(live, d)}</span></td></tr>`).join('');
-  const parts = ['Most Indian shops and rate sites fix a rate in the morning and revise it in the evening (IBJA publishes about 5–6:30 PM). The market moves in between.'];
+  const parts = ['Chennai shops follow the association rate, published at 9:30 AM and 3:30 PM. The live market moves in between.'];
   if (r.config.calibratedAt) parts.push(`Live rates are matched to shop prices as of ${new Intl.DateTimeFormat('en-IN', { timeZone: TZ, day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', hour12: true }).format(new Date(r.config.calibratedAt))} IST.`);
   if (mo?.kind === 'first') parts.push('The morning update was missed today, so the first recorded rate is shown.');
   if (r.config.calibratedAt) parts.unshift(`Now matches the shop rate you entered at ${tm(r.config.calibratedAt)} IST.`);
