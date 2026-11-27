@@ -77,9 +77,11 @@ This reproduces the shop tables you sent on 25 and 26 Nov 2026.
     "Live today" graph (about one point every 5 minutes).
   - Weekends: global gold and silver trading is closed from Saturday
     03:30 AM IST to Monday 04:30 AM IST (winter time), so prices hold.
-  - Morning rate and evening rate are saved once a day at 9:30 AM and
-    3:30 PM IST (the times the Chennai jewellers' association publishes).
-    They are used for the track record, not shown on the page.
+  - Morning shop rate is saved once a day at about 9:45 AM IST (the Chennai
+    jewellers' association says 9:30 AM, usually seen by 9:45-10:00 AM).
+    The 3:30 PM IST evening rate is only a revision: it is saved only if the
+    price moved 1% or more since the morning (EVENING_REVISION_PCT).
+    Both are shown in "Today's shop prices" and used for the track record.
 
 
 6. WHERE DATA IS STORED

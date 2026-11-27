@@ -171,15 +171,18 @@ test('previous close is the last COMPLETED session (regression: Indian morning s
   assert.equal(day.reference.date, '2026-11-23');
 });
 
-test('evening rate: fixed once at 3:30 PM IST window, not before, not overwritten', async () => {
+test('evening rate: only a revision when price moved enough since morning; fixed once', async () => {
   const store = memoryStore(); const cfg = getConfig({ LOCAL_PREMIUM_PCT: '0', SILVER_PREMIUM_PCT: '0' });
-  const early = await getSnapshot({ fetchImpl: mockFetch({ xau: 4000 }), store, now: D('2026-11-25T09:30:00Z'), cfg }); // 15:00 IST
-  assert.equal(early.evening, null);
-  const a = await getSnapshot({ fetchImpl: mockFetch({ xau: 4000 }), store, now: D('2026-11-25T10:10:00Z'), cfg });     // 15:40 IST
+  const f = (xau, now) => getSnapshot({ fetchImpl: mockFetch({ xau }), store, now: D(now), cfg });
+  await f(4000, '2026-11-25T04:30:00Z');                      // 10:00 IST morning rate
+  const flat = await f(4010, '2026-11-25T10:10:00Z');         // 15:40 IST, +0.25%: no revision
+  assert.equal(flat.evening, null);
+  const a = await f(4100, '2026-11-25T10:20:00Z');            // +2.5%: revision recorded
   assert.equal(a.evening.kind, 'today');
-  const b = await getSnapshot({ fetchImpl: mockFetch({ xau: 3900 }), store, now: D('2026-11-25T15:00:00Z'), cfg });     // 20:30 IST
+  const b = await f(3900, '2026-11-25T10:30:00Z');
   assert.equal(b.evening.g24, a.evening.g24);
   assert.equal(getConfig({ EVENING_RATE_TIME: '18:15' }).eveningMinutes, 18 * 60 + 15);
+  assert.equal(cfg.morningMinutes, 9 * 60 + 45);
 });
 
 test('forecast evening target matches the shop evening time', async () => {
@@ -207,5 +210,5 @@ test('shop rate: latest/previous fixed rates, today list and next update time', 
   assert.equal(r.today.length, 1);
   assert.equal(r.next.slot, 'evening'); assert.equal(r.next.at, '2026-11-27T10:00:00.000Z');
   const fri = await readShop({ store, now: D('2026-11-27T12:00:00Z'), cfg });         // 17:30 IST Fri
-  assert.equal(fri.next.slot, 'morning'); assert.equal(fri.next.at, '2026-11-30T04:00:00.000Z');  // Monday 9:30 IST
+  assert.equal(fri.next.slot, 'morning'); assert.equal(fri.next.at, '2026-11-30T04:15:00.000Z');  // Monday 9:45 IST
 });
