@@ -91,7 +91,7 @@ const nextTxt = (n, asOf) => {
   if (!n) return '';
   const day = (iso) => new Intl.DateTimeFormat('en-CA', { timeZone: TZ }).format(new Date(iso));
   const same = day(n.at) === day(asOf);
-  return `${n.slot === 'morning' ? 'morning' : 'evening'} rate ${same ? 'today' : new Intl.DateTimeFormat('en-IN', { timeZone: TZ, weekday: 'short', day: 'numeric', month: 'short' }).format(new Date(n.at))} at ${tm(n.at)}`;
+  return `${n.slot === 'morning' ? 'morning rate' : 'evening revision check'} ${same ? 'today' : new Intl.DateTimeFormat('en-IN', { timeZone: TZ, weekday: 'short', day: 'numeric', month: 'short' }).format(new Date(n.at))} at ${tm(n.at)}`;
 };
 
 /* ---------- renderers ---------- */
@@ -149,9 +149,11 @@ function renderShop() {
     html += filled(`🕘 Last shop rate`, `${l.slot === 'morning' ? 'Morning' : 'Evening'} · ${dDay(l.date)}`, l);
   }
   html += mo ? filled('🌅 Morning', slotLabel(cfg.morningMinutes), mo) : pending('🌅 Morning', slotLabel(cfg.morningMinutes), `fixed at ${slotLabel(cfg.morningMinutes)}`);
-  html += ev ? filled('🌇 Evening', slotLabel(cfg.eveningMinutes), ev) : pending('🌇 Evening', slotLabel(cfg.eveningMinutes), `fixed at ${slotLabel(cfg.eveningMinutes)}`);
+  const rev = `${cfg.eveningRevisionPct}%`;
+  html += ev ? filled('🌇 Evening revision', slotLabel(cfg.eveningMinutes), ev)
+    : pending('🌇 Evening revision', slotLabel(cfg.eveningMinutes), sh.eveningPhase === 'before' ? `only if the price moves more than ${rev} by then` : '✅ No revision. The morning rate stays.');
   $('shopList').innerHTML = html;
-  $('shNote').textContent = `Chennai shops follow the association rate, set at ${slotLabel(cfg.morningMinutes)} and ${slotLabel(cfg.eveningMinutes)}. Next: ${nextTxt(sh.next, r.asOf)}. These are calculated estimates, so your shop may differ slightly.`;
+  $('shNote').textContent = `Chennai shops follow the association (MJDTA) rate. It is published each morning (officially 9:30 AM, usually seen by about 9:45–10:00 AM) and revised around ${slotLabel(cfg.eveningMinutes)} only on volatile days. Next: ${nextTxt(sh.next, r.asOf)}. These are calculated estimates, so your shop may differ slightly.`;
 }
 
 function renderForecast() {

@@ -9,7 +9,7 @@ Static site + Netlify Functions. No build step, no API keys.
 - Everything in Indian Standard Time.
 
 ## Morning rate, estimates and track record
-- **Morning rate:** captured once each weekday at the first update on/after 9:30 AM IST (change with `MORNING_RATE_TIME`, e.g. `10:30`) and held all day, like Indian rate sites do. Shown next to the live rate.
+- **Morning rate:** captured once each weekday at the first update on/after 9:45 AM IST (change with `MORNING_RATE_TIME`, e.g. `10:30`) and held all day, like Indian rate sites do. Shown next to the live rate.
 - **Tomorrow’s estimate:** projects the live price to tomorrow’s morning and end of day using recent volatility. It also stores each estimate and later compares it with the real morning rate, shown as a track record.
 
 ## How the rate is computed
@@ -43,11 +43,12 @@ Local: `npm install && npx netlify dev`. Tests (mocked network): `npm test`. Moc
 
 ## Shop rate times (Morning and Evening)
 
-Indian shops and rate sites fix a rate in the morning and revise it later in the day (Chennai's MJDTA publishes at 9:30 AM and 3:30 PM IST; IBJA publishes about noon and 5 PM). The site captures two fixed shop rates each weekday and shows them next to the live rate:
+Indian shops and rate sites fix a rate in the morning and revise it later in the day (Chennai's MJDTA publishes at 9:30 AM and 3:30 PM IST; IBJA publishes about noon and 5 PM). The site captures the morning rate every weekday, and an evening revision only when the price has moved enough since the morning:
 
 | Setting | Default | Env var |
 |---|---|---|
-| Morning rate | 9:30 IST | `MORNING_RATE_TIME` ("HH:MM") |
-| Evening rate | 15:30 IST | `EVENING_RATE_TIME` ("HH:MM") |
+| Morning rate | 9:45 IST (MJDTA officially 9:30, usually seen by ~9:45-10:00) | `MORNING_RATE_TIME` ("HH:MM") |
+| Evening revision | 15:30 IST | `EVENING_RATE_TIME` ("HH:MM") |
+| Revision threshold | 1% move since morning | `EVENING_REVISION_PCT` |
 
 Each is captured once, from the first update after the slot time, and only while the global market is open. The forecast table's Morning and Evening columns use the same times, and the track record scores each estimate against the captured rate.
