@@ -195,3 +195,17 @@ test('live graph trace: one point about every 5 minutes, not on every call', asy
   const t = await readToday({ store, now: D('2026-11-25T05:07:00Z') });
   assert.equal(t.trace.length, 2);
 });
+
+test('shop rate: latest/previous fixed rates, today list and next update time', async () => {
+  const { readShop } = await import('../lib/tracker.mjs');
+  const store = memoryStore(), cfg = getConfig({});
+  await store.set('morning:2026-11-26', { date: '2026-11-26', t: '2026-11-26T04:10:00.000Z', g24: 12589, s: 170 });
+  await store.set('evening:2026-11-26', { date: '2026-11-26', t: '2026-11-26T10:05:00.000Z', g24: 12600, s: 171 });
+  await store.set('morning:2026-11-27', { date: '2026-11-27', t: '2026-11-27T04:05:00.000Z', g24: 12655, s: 172 });
+  const r = await readShop({ store, now: D('2026-11-27T06:30:00Z'), cfg });           // 12:00 IST Fri
+  assert.equal(r.latest.slot, 'morning'); assert.equal(r.latest.g24, 12655); assert.equal(r.latest.prevG24, 12600);
+  assert.equal(r.today.length, 1);
+  assert.equal(r.next.slot, 'evening'); assert.equal(r.next.at, '2026-11-27T10:00:00.000Z');
+  const fri = await readShop({ store, now: D('2026-11-27T12:00:00Z'), cfg });         // 17:30 IST Fri
+  assert.equal(fri.next.slot, 'morning'); assert.equal(fri.next.at, '2026-11-30T04:00:00.000Z');  // Monday 9:30 IST
+});
