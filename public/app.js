@@ -85,6 +85,15 @@ function setChip(id, c, m) {
   el.className = 'chip ' + cls + (changed && !firstLoad ? ' bump' : '');
 }
 
+/* ---------- shop-rate helpers ---------- */
+const slotLabel = (min) => `${Math.floor(min / 60) % 12 || 12}:${String(min % 60).padStart(2, '0')} ${min >= 720 ? 'PM' : 'AM'}`;
+const nextTxt = (n, asOf) => {
+  if (!n) return '';
+  const day = (iso) => new Intl.DateTimeFormat('en-CA', { timeZone: TZ }).format(new Date(iso));
+  const same = day(n.at) === day(asOf);
+  return `${n.slot === 'morning' ? 'morning' : 'evening'} rate ${same ? 'today' : new Intl.DateTimeFormat('en-IN', { timeZone: TZ, weekday: 'short', day: 'numeric', month: 'short' }).format(new Date(n.at))} at ${tm(n.at)}`;
+};
+
 /* ---------- renderers ---------- */
 function renderStatus(r) {
   const m = r.market, p = $('statusPill');
@@ -113,7 +122,36 @@ function renderBoard() {
   setChip('c-g22', gc && { abs: gc.abs * 22 / 24, pct: gc.pct }, m.gold);
   setChip('c-g18', gc && { abs: gc.abs * 18 / 24, pct: gc.pct }, m.gold);
   setChip('c-s', sc, m.silver);
-  renderForecast(); renderLog(); renderLive(); renderChart(true);
+  renderShop(); renderForecast(); renderLog(); renderLive(); renderChart(true);
+}
+
+function renderShop() {
+  const r = state.rates, sh = r?.shop; if (!r) return;
+  if (!sh) { $('shopList').innerHTML = '<p class="muted">Shop prices appear after the first update at 9:30 AM.</p>'; return; }
+  const m = mult(), d = decs(), cfg = r.config, u = unitTxt();
+  $('shSub').textContent = `Gold ${u.gold} · Silver ${u.silver}`;
+  const cell = (label, now, before) => {
+    const dv = before == null ? null : now - before;
+    const cls = dv == null ? 'flat' : dv > 0 ? 'up' : dv < 0 ? 'down' : 'flat';
+    const txt = dv == null ? '&nbsp;' : dv === 0 ? '➖ no change' : `${dv > 0 ? '🟢 ▲' : '🔴 ▼'} ${inr(Math.abs(dv), d)}`;
+    return `<div class="lc"><span class="k">${label}</span><span class="p">${inr(now, d)}</span><span class="dl ${cls}">${txt}</span></div>`;
+  };
+  const filled = (title, sub, x) => {
+    const has = x.prevG24 != null;
+    return `<div class="lrow" role="listitem"><div class="lt">${title}<small>${sub}</small></div>
+      ${cell('24K', pxG(x.g24, 24, m.gold), has ? pxG(x.prevG24, 24, m.gold) : null)}${cell('22K', pxG(x.g24, 22, m.gold), has ? pxG(x.prevG24, 22, m.gold) : null)}${cell('18K', pxG(x.g24, 18, m.gold), has ? pxG(x.prevG24, 18, m.gold) : null)}${cell('Silver', px(x.s, m.silver), has ? px(x.prevS, m.silver) : null)}</div>`;
+  };
+  const pending = (title, sub, text) => `<div class="lrow pending" role="listitem"><div class="lt">${title}<small>${sub}</small></div><div class="pend">⏳ ${text}</div></div>`;
+  const today = sh.today, mo = today.find((x) => x.slot === 'morning'), ev = today.find((x) => x.slot === 'evening');
+  let html = '';
+  if (!today.length && sh.latest) {
+    const l = sh.latest;
+    html += filled(`🕘 Last shop rate`, `${l.slot === 'morning' ? 'Morning' : 'Evening'} · ${dDay(l.date)}`, l);
+  }
+  html += mo ? filled('🌅 Morning', slotLabel(cfg.morningMinutes), mo) : pending('🌅 Morning', slotLabel(cfg.morningMinutes), `fixed at ${slotLabel(cfg.morningMinutes)}`);
+  html += ev ? filled('🌇 Evening', slotLabel(cfg.eveningMinutes), ev) : pending('🌇 Evening', slotLabel(cfg.eveningMinutes), `fixed at ${slotLabel(cfg.eveningMinutes)}`);
+  $('shopList').innerHTML = html;
+  $('shNote').textContent = `Chennai shops follow the association rate, set at ${slotLabel(cfg.morningMinutes)} and ${slotLabel(cfg.eveningMinutes)}. Next: ${nextTxt(sh.next, r.asOf)}. These are calculated estimates, so your shop may differ slightly.`;
 }
 
 function renderForecast() {

@@ -207,3 +207,9 @@ main.wrap{padding-top:16px}
 @keyframes ping{0%{transform:scale(1);opacity:.8}100%{transform:scale(3.2);opacity:0}}
 @media (max-width:520px){.lv-stats{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media (max-width:420px){.chart-panel~*{}.panel-head .seg-sm span{padding:5px 9px;font-size:.74rem}}
+
+.shop{border-color:rgba(255,200,61,.3)}
+.shoplist{max-height:none;overflow:visible}
+.lrow.pending{opacity:.65}
+.lrow.pending .lt+.pend{grid-column:2/-1;color:var(--ink3);font-weight:700;font-size:.88rem}
+@media (max-width:700px){.lrow.pending .lt+.pend{grid-column:1/-1}}
