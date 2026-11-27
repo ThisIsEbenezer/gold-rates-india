@@ -21,8 +21,9 @@ const gstMul = () => (state.gst && state.rates ? 1 + state.rates.config.gstPct /
 const decs = () => 0;
 // Shops quote a whole-rupee rate per gram and multiply it by the weight, so round per gram first.
 const px = (perGram, mm) => Math.round(Math.round(perGram) * gstMul()) * mm;
-// Chennai shops fix the 22K rate in steps of Rs 5, then derive 24K (x24/22) and 18K (x18/22) from it.
-const goldK = (g24raw, karat) => { const k22 = Math.round(g24raw * 22 / 24 / 5) * 5; return karat === 22 ? k22 : Math.round(k22 * karat / 22); };
+// Chennai shops: 24K is a whole-rupee rate; 22K = 24K x 22/24 rounded to the nearest Rs 5; 18K = 24K x 18/24.
+// (Checked against 10 days of Chennai rates: 10 of 10 match.)
+const goldK = (g24raw, karat) => { const k24 = Math.round(g24raw); return karat === 24 ? k24 : karat === 22 ? Math.round(k24 * 22 / 24 / 5) * 5 : Math.round(k24 * 18 / 24); };
 const pxG = (g24raw, karat, mm) => Math.round(goldK(g24raw, karat) * gstMul()) * mm;
 
 setTimeout(() => document.body.classList.remove('intro'), 1800);

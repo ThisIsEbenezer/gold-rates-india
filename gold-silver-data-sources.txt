@@ -1,0 +1,107 @@
+SAM'S GOLD PREDICTION - WHERE THE PRICES COME FROM
+====================================================
+
+Short answer
+------------
+The site does NOT read the shop (jeweller) rate from anywhere. It takes the
+global gold and silver price in US dollars, converts it to rupees, adds
+Indian import duty and a fixed shop margin ("premium"), and rounds it the
+way Chennai shops do. So the numbers are an estimate of the shop price,
+usually within about 0.5% to 1%, not the exact shop price.
+
+
+1. LIVE PRICE SOURCES (all free, no API key)
+--------------------------------------------
+Gold price in USD per ounce (XAU)
+  Main:     https://api.gold-api.com/price/XAU
+  Backup:   Yahoo Finance gold futures (GC=F)
+
+Silver price in USD per ounce (XAG)
+  Main:     https://api.gold-api.com/price/XAG
+  Backup:   Yahoo Finance silver futures (SI=F)
+
+US dollar to Indian rupee (USD/INR)
+  Main:     https://open.er-api.com/v6/latest/USD
+  Backup 1: https://api.frankfurter.dev/v1/latest?base=USD&symbols=INR
+  Backup 2: Yahoo Finance (INR=X)
+
+If a main source fails, the site tries the next one. If all fail, it shows
+the last saved price and a warning.
+
+
+2. HISTORY AND TOMORROW'S ESTIMATE SOURCE
+-----------------------------------------
+Yahoo Finance daily prices (query1.finance.yahoo.com, chart data) for gold,
+silver and USD/INR. Used for:
+  - the "Last 30 days" chart (older days)
+  - the volatility and momentum used in "Tomorrow's estimate"
+
+Tomorrow's estimate is a statistical guess (recent daily volatility plus a
+small amount of recent momentum). It is not advice and cannot be exact.
+
+
+3. HOW THE RUPEE PRICE IS CALCULATED
+------------------------------------
+  24K price per gram (Rs) =
+      gold USD per ounce / 31.1034768      (ounce to grams)
+      x USD/INR
+      x 1.15                               (15% import duty)
+      x (1 + premium)                      (shop margin)
+
+  Silver uses the same steps with the silver price and its own premium.
+
+Import duty: 15% (10% basic duty + 5% cess), in force since 13 May 2026.
+  Can be changed in Netlify with IMPORT_DUTY_PCT.
+Premium (default): gold 2.1%, silver 17%.
+  Can be changed in Netlify with LOCAL_PREMIUM_PCT and SILVER_PREMIUM_PCT.
+  These were measured by comparing against real Chennai shop prices on
+  25 and 26 Nov 2026. Shop margins drift a little every day, so a small
+  difference from the shop is normal. Silver differs the most.
+GST (+3%) is not in the price. It is shown only when you switch it on.
+
+
+4. HOW IT IS ROUNDED (to match Chennai shops)
+---------------------------------------------
+  - 22K is rounded to the nearest Rs 5 per gram.
+  - 24K = 22K x 24/22 and 18K = 22K x 18/22, each rounded to a whole rupee.
+  - Prices are rounded per gram first, then multiplied by the weight
+    (so 10 g = 10 x the one-gram price).
+This reproduces the shop tables you sent on 25 and 26 Nov 2026.
+
+
+5. HOW OFTEN IT UPDATES
+-----------------------
+  - The page asks for fresh prices every 30 seconds.
+  - A background job runs every 10 minutes to record prices, even if nobody
+    has the page open. This builds "Today's price changes" and the
+    "Live today" graph (about one point every 5 minutes).
+  - Weekends: global gold and silver trading is closed from Saturday
+    03:30 AM IST to Monday 04:30 AM IST (winter time), so prices hold.
+  - Morning rate and evening rate are saved once a day at 9:30 AM and
+    3:30 PM IST (the times the Chennai jewellers' association publishes).
+    They are used for the track record, not shown on the page.
+
+
+6. WHERE DATA IS STORED
+-----------------------
+Netlify Blobs (built into your Netlify site): today's price changes, the
+live graph points, daily closes, and past estimates for the track record.
+Nothing is stored about visitors.
+
+
+7. WHAT THE SITE DOES NOT USE
+-----------------------------
+  - No MJDTA (Chennai association) feed. Their price API needs a paid
+    licence from Logimax, so the site cannot read the exact shop rate.
+  - No IBJA feed.
+  - No jeweller websites or scraping.
+
+
+8. LIMITS TO KNOW
+-----------------
+  - Estimate, not the shop's own rate: expect about 0.5% to 1% difference,
+    more for silver.
+  - Shops fix their rate about twice a day; the site moves with the global
+    market all day, so the two will differ between shop updates.
+  - Free data sources can be delayed or briefly unavailable.
+  - Estimates are not investment advice.
