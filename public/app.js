@@ -71,19 +71,29 @@ function setNumber(id, value, dec, flashTarget) {
   raf.set(id, requestAnimationFrame(step));
 }
 
-function setChip(id, c, m) {
+function setChip(id, c, m, raw = false) {
   const el = $(id); if (!el) return;
   if (!c) { el.className = 'chip'; el.textContent = ''; return; }
   const cls = c.abs > 0 ? 'up' : c.abs < 0 ? 'down' : '';
   const arrow = c.abs > 0 ? '▲' : c.abs < 0 ? '▼' : '■';
   const emoji = c.abs > 0 ? '📈' : c.abs < 0 ? '📉' : '😐';
   const card = el.closest('.card'); if (card) card.dataset.t = cls;
-  const amount = inr(Math.abs(c.abs * m * gstMul()), decs());
+  const amount = inr(Math.abs(raw ? c.abs : c.abs * m * gstMul()), decs());
   const html = `<span class="em">${emoji}</span><span class="arr">${arrow}</span>${amount} · ${Math.abs(c.pct).toFixed(2)}%`;
   const changed = el.dataset.v !== html;
   el.dataset.v = html; el.innerHTML = html;
   el.className = 'chip ' + cls + (changed && !firstLoad ? ' bump' : '');
 }
+
+/* ---------- shop-rate helpers ---------- */
+const slotLabel = (min) => `${Math.floor(min / 60) % 12 || 12}:${String(min % 60).padStart(2, '0')} ${min >= 720 ? 'PM' : 'AM'}`;
+const nextTxt = (n) => {
+  if (!n) return '';
+  const day = (iso) => new Intl.DateTimeFormat('en-CA', { timeZone: TZ }).format(new Date(iso));
+  const same = day(n.at) === day(state.rates.asOf);
+  return `${n.slot === 'morning' ? 'morning' : 'evening'} rate ${same ? 'today' : new Intl.DateTimeFormat('en-IN', { timeZone: TZ, weekday: 'short', day: 'numeric', month: 'short' }).format(new Date(n.at))} at ${tm(n.at)}`;
+};
+const shopRaw = (r) => (r.shop?.latest ? { g24: r.shop.latest.g24, s: r.shop.latest.s, on: true } : { g24: r.rates.gold.perGram.k24, s: r.rates.silver.perGram, on: false });
 
 /* ---------- renderers ---------- */
 function renderStatus(r) {
@@ -99,26 +109,44 @@ function renderStatus(r) {
 
 function renderBoard() {
   const r = state.rates; if (!r) return;
-  const m = mult(), u = unitTxt(), g = gstMul(), d = decs();
+  const m = mult(), u = unitTxt(), d = decs();
   const mode = `${state.unit}|${state.gst}`;
   state.modeChanged = mode !== lastMode; lastMode = mode;
-  const gold = r.rates.gold.perGram, ref = r.reference;
-  const gc = ref?.gold, sc = ref?.silver;
+  const live = r.rates.gold.perGram, ref = r.reference, cur = shopRaw(r), sh = r.shop?.latest;
   $('u-g24').textContent = u.gold; $('u-g22').textContent = u.gold; $('u-g18').textContent = u.gold; $('u-s').textContent = u.silver;
-  setNumber('v-g24', pxG(gold.k24, 24, m.gold), d, $('hero-price'));
-  setNumber('v-g22', pxG(gold.k24, 22, m.gold), d, $('v-g22').closest('.card'));
-  setNumber('v-g18', pxG(gold.k24, 18, m.gold), d, $('v-g18').closest('.card'));
-  setNumber('v-s', px(r.rates.silver.perGram, m.silver), d, $('v-s').closest('.card'));
-  setChip('c-g24', gc, m.gold);
-  setChip('c-g22', gc && { abs: gc.abs * 22 / 24, pct: gc.pct }, m.gold);
-  setChip('c-g18', gc && { abs: gc.abs * 18 / 24, pct: gc.pct }, m.gold);
-  setChip('c-s', sc, m.silver);
+  setNumber('v-g24', pxG(cur.g24, 24, m.gold), d, $('hero-price'));
+  setNumber('v-g22', pxG(cur.g24, 22, m.gold), d, $('v-g22').closest('.card'));
+  setNumber('v-g18', pxG(cur.g24, 18, m.gold), d, $('v-g18').closest('.card'));
+  setNumber('v-s', px(cur.s, m.silver), d, $('v-s').closest('.card'));
+  if (cur.on && sh.prevG24 != null) {
+    const chip = (id, now, before) => setChip(id, { abs: now - before, pct: ((now - before) / before) * 100 }, 1, true);
+    chip('c-g24', pxG(sh.g24, 24, m.gold), pxG(sh.prevG24, 24, m.gold));
+    chip('c-g22', pxG(sh.g24, 22, m.gold), pxG(sh.prevG24, 22, m.gold));
+    chip('c-g18', pxG(sh.g24, 18, m.gold), pxG(sh.prevG24, 18, m.gold));
+    chip('c-s', px(sh.s, m.silver), px(sh.prevS, m.silver));
+  } else if (cur.on) {
+    ['c-g24', 'c-g22', 'c-g18', 'c-s'].forEach((id) => setChip(id, null, 1));
+  } else {
+    const gc = ref?.gold, sc = ref?.silver;
+    setChip('c-g24', gc, m.gold); setChip('c-g22', gc && { abs: gc.abs * 22 / 24, pct: gc.pct }, m.gold);
+    setChip('c-g18', gc && { abs: gc.abs * 18 / 24, pct: gc.pct }, m.gold); setChip('c-s', sc, m.silver);
+  }
+  const cfg = r.config;
+  $('shopNote').textContent = cur.on
+    ? `🕘 Shop rate · ${sh.slot === 'morning' ? 'morning' : 'evening'} rate (${slotLabel(sh.slot === 'morning' ? cfg.morningMinutes : cfg.eveningMinutes)}) · next: ${nextTxt(r.shop.next)}`
+    : '📡 Showing the live price until the first shop rate is recorded.';
+  const ln = $('liveNote');
+  if (cur.on) {
+    const diff = pxG(live.k24, 24, m.gold) - pxG(cur.g24, 24, m.gold);
+    ln.className = 'livenote ' + (diff > 0 ? 'up' : diff < 0 ? 'down' : '');
+    ln.textContent = diff === 0 ? `📡 Live market now: same as the shop rate` : `📡 Live market now: ${inr(pxG(live.k24, 24, m.gold), d)} · ${diff > 0 ? '▲' : '▼'} ${inr(Math.abs(diff), d)} ${diff > 0 ? 'above' : 'below'} the shop rate`;
+  } else { ln.className = 'livenote'; ln.textContent = ''; }
   renderForecast(); renderLog(); renderLive(); renderChart(true);
 }
 
 function renderForecast() {
   const r = state.rates, f = r?.forecast; if (!f) return;
-  const m = mult(), d = decs(), u = unitTxt(), gold = r.rates.gold.perGram;
+  const m = mult(), d = decs(), u = unitTxt(), cur = shopRaw(r);
   $('fcDate').textContent = f.tomorrowIsTradingDay ? dDay(f.targetDate) : `${dDay(f.tomorrow)} · market closed`;
   if (!f.available) { $('fcBody').innerHTML = '<p class="muted">Estimate unavailable right now.</p>'; return; }
   const closedNote = f.tomorrowIsTradingDay ? '' : `<p class="fnote">Indian markets are shut tomorrow, so rates hold. These estimates are for ${dDay(f.targetDate)}.</p>`;
@@ -129,7 +157,7 @@ function renderForecast() {
     const lo = conv(Math.min(x.morning.low, x.evening.low)), hi = conv(Math.max(x.morning.high, x.evening.high));
     const now = conv(nowRaw), diff = exp - now;
     const cls = diff > 0 ? 'up' : diff < 0 ? 'down' : 'flat';
-    const txt = diff === 0 ? '😐 about the same as now' : `${diff > 0 ? '📈 ▲' : '📉 ▼'} ${inr(Math.abs(diff), d)} vs now`;
+    const txt = diff === 0 ? '😐 about the same as today’s rate' : `${diff > 0 ? '📈 ▲' : '📉 ▼'} ${inr(Math.abs(diff), d)} vs today’s rate`;
     const pos = hi > lo ? Math.max(4, Math.min(96, ((exp - lo) / (hi - lo)) * 100)) : 50;
     return `<div class="er"><div class="er-top"><span class="er-name">${emoji} ${name}</span><span class="er-val">${inr(exp, d)}</span></div>
       <div class="er-d ${cls}">${txt}</div>
@@ -141,31 +169,31 @@ function renderForecast() {
   const errs = A ? [A.goldMorningAbsPct, A.goldEveningAbsPct, A.silverMorningAbsPct, A.silverEveningAbsPct].filter((v) => v != null) : [];
   const track = errs.length ? `<p class="fnote">🎯 Track record (last ${A.days} day${A.days > 1 ? 's' : ''}): estimates were off by ${(errs.reduce((a, b) => a + b, 0) / errs.length).toFixed(1)}% on average.</p>` : '<p class="fnote">🎯 Track record appears here after the first full day of estimates.</p>';
   $('fcBody').innerHTML = `<p class="fc-unit">Gold ${u.gold} · Silver ${u.silver} · likely range for the day</p>
-    <div class="est">${box('Gold 24K', '🥇', f.gold, 24, m.gold, gold.k24)}${box('Gold 22K', '🥇', f.gold, 22, m.gold, gold.k24)}${box('Gold 18K', '🥇', f.gold, 18, m.gold, gold.k24)}${box('Silver', '🥈', f.silver, 0, m.silver, r.rates.silver.perGram)}</div>
+    <div class="est">${box('Gold 24K', '🥇', f.gold, 24, m.gold, cur.g24)}${box('Gold 22K', '🥇', f.gold, 22, m.gold, cur.g24)}${box('Gold 18K', '🥇', f.gold, 18, m.gold, cur.g24)}${box('Silver', '🥈', f.silver, 0, m.silver, cur.s)}</div>
     <div class="lean-line">${lean('Gold', '🥇', f.gold)}${lean('Silver', '🥈', f.silver)}</div>${closedNote}${track}
     <p class="fnote">Gold and silver cannot be predicted exactly. Estimates are not investment advice.</p>`;
 }
 
 function renderLog() {
-  const h = state.history; if (!h) return;
-  const m = mult(), g = gstMul(), d = decs();
-  const rows = [...h.today.revisions].reverse();
+  const r = state.rates; if (!r) return;
+  const m = mult(), d = decs(), sh = r.shop, cfg = r.config;
+  const rows = [...(sh?.today ?? [])].reverse();
   $('logMeta').textContent = rows.length ? `${rows.length} update${rows.length > 1 ? 's' : ''} today` : '';
-  if (!rows.length) { $('log').innerHTML = '<p class="muted">😴 No changes yet today. New rates appear here as the price moves.</p>'; return; }
-  const cell = (label, price, delta) => {
-    const dv = delta == null ? null : delta * g;
+  if (!rows.length) { $('log').innerHTML = `<p class="muted">😴 No shop update yet today. Next: ${sh ? nextTxt(sh.next) : 'soon'}.</p>`; return; }
+  const cell = (label, now, before) => {
+    const dv = before == null ? null : now - before;
     const cls = dv == null ? 'flat' : dv > 0 ? 'up' : dv < 0 ? 'down' : 'flat';
-    const txt = dv == null ? '&nbsp;' : dv === 0 ? '➖' : `${dv > 0 ? '🟢 ▲' : '🔴 ▼'} ${inr(Math.abs(dv), d)}`;
-    return `<div class="lc"><span class="k">${label}</span><span class="p">${inr(price, d)}</span><span class="dl ${cls}">${txt}</span></div>`;
+    const txt = dv == null ? '&nbsp;' : dv === 0 ? '➖ no change' : `${dv > 0 ? '🟢 ▲' : '🔴 ▼'} ${inr(Math.abs(dv), d)}`;
+    return `<div class="lc"><span class="k">${label}</span><span class="p">${inr(now, d)}</span><span class="dl ${cls}">${txt}</span></div>`;
   };
   const html = rows.map((x) => {
     const isNew = !firstLoad && !seenTicks.has(x.t) && seenTicks.size > 0;
-    const tag = x.carried ? 'carried from last close' : x.first ? 'first rate of the day' : '';
-    const dG = x.dG == null ? null : x.dG * m.gold, dS = x.dS == null ? null : x.dS * m.silver;
-    return `<div class="lrow${isNew ? ' enter' : ''}" role="listitem"><div class="lt">🕘 ${tm(x.t)}${tag ? `<small>${tag}</small>` : ''}</div>
-      ${cell('24K', pxG(x.g24, 24, m.gold), dG)}${cell('22K', pxG(x.g24, 22, m.gold), dG == null ? null : dG * 22 / 24)}${cell('18K', pxG(x.g24, 18, m.gold), dG == null ? null : dG * 18 / 24)}${cell('Silver', px(x.s, m.silver), dS)}</div>`;
+    const has = x.prevG24 != null;
+    const nom = x.slot === 'morning' ? cfg.morningMinutes : cfg.eveningMinutes;
+    return `<div class="lrow${isNew ? ' enter' : ''}" role="listitem"><div class="lt">${x.slot === 'morning' ? '🌅 Morning' : '🌇 Evening'}<small>${slotLabel(nom)}</small></div>
+      ${cell('24K', pxG(x.g24, 24, m.gold), has ? pxG(x.prevG24, 24, m.gold) : null)}${cell('22K', pxG(x.g24, 22, m.gold), has ? pxG(x.prevG24, 22, m.gold) : null)}${cell('18K', pxG(x.g24, 18, m.gold), has ? pxG(x.prevG24, 18, m.gold) : null)}${cell('Silver', px(x.s, m.silver), has ? px(x.prevS, m.silver) : null)}</div>`;
   }).join('');
-  h.today.revisions.forEach((x) => seenTicks.add(x.t));
+  rows.forEach((x) => seenTicks.add(x.t));
   $('log').innerHTML = html;
 }
 

@@ -28,9 +28,11 @@
 
   <section class="hero" aria-labelledby="heroLabel">
     <div class="status"><span id="statusPill" class="pill">Loading</span><span id="statusText" class="muted"></span></div>
-    <h1 id="heroLabel" class="hero-label">🥇 Gold 24K <span id="u-g24" class="unit">per 10 g</span></h1>
+    <h1 id="heroLabel" class="hero-label">🥇 Gold 24K <span id="u-g24" class="unit">per 10 g</span> <span class="tagline">· shop rate</span></h1>
     <div class="hero-price" id="hero-price"><span class="rs">₹</span><span id="v-g24" class="metal">––,–––</span></div>
     <div class="chip" id="c-g24" aria-live="polite"></div>
+    <p class="shopnote" id="shopNote"></p>
+    <p class="livenote" id="liveNote"></p>
 
     <div class="controls">
       <fieldset class="seg"><legend class="sr">Unit</legend>
@@ -53,7 +55,7 @@
   </section>
 
   <section class="panel" aria-labelledby="logT">
-    <div class="panel-head"><h2 id="logT">⏱️ Today’s price changes</h2><span id="logMeta" class="unit"></span></div>
+    <div class="panel-head"><h2 id="logT">⏱️ Today’s shop rate changes</h2><span id="logMeta" class="unit"></span></div>
     <div class="log" id="log" role="list"><p class="muted">Loading…</p></div>
   </section>
 

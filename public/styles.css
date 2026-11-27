@@ -207,3 +207,8 @@ main.wrap{padding-top:16px}
 @keyframes ping{0%{transform:scale(1);opacity:.8}100%{transform:scale(3.2);opacity:0}}
 @media (max-width:520px){.lv-stats{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media (max-width:420px){.chart-panel~*{}.panel-head .seg-sm span{padding:5px 9px;font-size:.74rem}}
+
+.shopnote{margin:8px 0 0;font-size:.84rem;font-weight:700;color:var(--ink2)}
+.livenote{margin:4px 0 0;font-size:.84rem;font-weight:800;color:var(--ink3)}
+.livenote.up{color:var(--up)}.livenote.down{color:var(--down)}
+.tagline{font-weight:600;color:var(--ink3);font-size:.85em}
